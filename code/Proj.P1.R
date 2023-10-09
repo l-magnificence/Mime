@@ -15,7 +15,7 @@ rm(list = ls())
 # source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/Prognostic.model.con.R')
 
 
-### 可视化
+#######################  可视化（刘宏伟 已经完成） ###################################################
 
 load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
@@ -26,27 +26,33 @@ list_train_vali_Data = list(TCGA= sur.matrix.TCGA.Glioma,
                             CGGA.693 = sur.matrix.CGGA_RNAseq_693_FPKM_Glioma,
                             CGGA.1018 = sur.matrix.CGGA_RNAseq_1018_FPKM_Glioma,
                             CGGA.array = sur.matrix.CGGA_array_Glioma,
-                            GLASS = sur.matrix.GLASS_Glioma,
+                            GLASS_TP = sur.matrix.GLASS_TP_Glioma,
+                            GLASS_R1 = sur.matrix.GLASS_R1_Glioma,
                             GSE108474 = sur.matrix.GSE108474_Glioma,
                             GSE16011 = sur.matrix.GSE16011_Glioma,
                             GSE43289 =sur.matrix.GSE43289_Glioma,
                             GSE7696 = sur.matrix.GSE7696_Glioma
 )
+save(list_train_vali_Data,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/data/Glioma.cohort.Rdata")
 
-
-pdf('cindex_dis_all.pdf',width = 10,height = 15,onefile = F)
-cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data) )
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/cindex_dis_all.pdf',width = 10,height = 15,onefile = F)
+cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.2)
 dev.off()
 
-####################### 计算auc （张炜） ###################################################
+####################### 计算auc （张炜 刘宏伟） ###################################################
 
-### RSF + SuperPC 为最佳 的model
+### RSF + survival−SVM 为最佳 的model
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_AUC_ml_res.R')
 
 all.auc.1y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix.TCGA.Glioma,inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1)
+save(all.auc.1y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.1y.Rdata")
+
 all.auc.3y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix.TCGA.Glioma,inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 3)
+save(all.auc.3y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.3y.Rdata")
+
 all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix.TCGA.Glioma,inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5)
+save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.5y.Rdata")
 
 
 #######################  auc 可视化（刘宏伟） ###################################################
@@ -58,7 +64,7 @@ all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-auc_dis_all(roc1.list,
+auc_dis_all(all.auc.5y,
             dataset = names(list_train_vali_Data),
             validate_set=names(list_train_vali_Data)[-1],
             order= names(list_train_vali_Data),
@@ -67,6 +73,12 @@ auc_dis_all(roc1.list,
 # 或者展示RSF+SuperPC 在所有队列中的auc， 这里可能没有3年或者5年auc，队列中生存时间不够
 ## PMID: 35145098 参考文献
 
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
+
+roc_vis(all.auc.1y,
+        model_name = "RSF+SuperPC",
+        dataset = names(list_train_vali_Data),
+        year=1)
 
 ####################### roc 可视化 （刘宏伟）  ###################################################
 
@@ -75,6 +87,7 @@ auc_dis_all(roc1.list,
 ### roc 可视化 
 # 展示RSF+SuperPC 在所有队列中？
 
+# see auc above 
 
 ####################### Cindex 可视化 （刘宏伟）  ###################################################
 
@@ -82,6 +95,9 @@ auc_dis_all(roc1.list,
 ##
 ### Cindex 可视化 
 # 展示RSF+SuperPC 在所有队列中？
+
+# cindex were same in cindex_dis_all plot
+
 
 ############# compared with other clinical and molecular variables in predicting prognosis  ####
 ## PMID: 35145098 参考文献
