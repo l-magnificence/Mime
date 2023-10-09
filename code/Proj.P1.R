@@ -8,6 +8,7 @@ setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model")
 rm(list = ls())
 
+##
 
  
 ####################### 建立预后模型（张炜，已经完成） ###################################################
