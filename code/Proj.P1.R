@@ -8,6 +8,7 @@ setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model")
 rm(list = ls())
 
+
  
 ####################### 建立预后模型（张炜，已经完成） ###################################################
 # source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/Prognostic.model.con.R')
@@ -54,9 +55,13 @@ all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix
 ### auc 可视化
 # 类似于C-index在所有model在所有队列中的表达，
 
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-
-
+auc_dis_all(roc1.list,
+            dataset = names(list_train_vali_Data),
+            validate_set=names(list_train_vali_Data)[-1],
+            order= names(list_train_vali_Data),
+            year=1)
 
 # 或者展示RSF+SuperPC 在所有队列中的auc， 这里可能没有3年或者5年auc，队列中生存时间不够
 ## PMID: 35145098 参考文献
