@@ -15,6 +15,12 @@ rm(list = ls())
 # source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/Prognostic.model.con.R')
 
 
+
+
+
+
+
+
 ####################### Cindex 可视化（刘宏伟 已经完成） ###################################################
 
 load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
