@@ -39,9 +39,23 @@ cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/r
 cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.2)
 dev.off()
 
-####################### 计算auc （张炜 刘宏伟） ###################################################
-
 ### RSF + survival−SVM 为最佳 的model
+
+####################### KM曲线 生存分析 （刘宏伟）  ###################################################
+
+#
+##
+### KM曲线 生存分析 
+# 将 RSF + survival−SVM 生存分析的km曲线在所有11个队列中，直接提取risk score table就行
+
+rs_sur(res, model_name = "StepCox[forward] + survival-SVM",dataset = "CGGA.693",
+       #color=c("blue","green"),
+       median.line = "hv",
+       cutoff = 0.5,
+       conf.int = T,
+       xlab="day",pval.coord=c(4000,0.6))
+
+####################### 计算auc （张炜 刘宏伟 已经完成） ###################################################
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_AUC_ml_res.R')
 
@@ -55,7 +69,7 @@ all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix
 save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.5y.Rdata")
 
 
-#######################  auc 可视化（刘宏伟） ###################################################
+#######################  auc 可视化（刘宏伟 已经完成） ###################################################
 
 #
 ##
@@ -64,21 +78,64 @@ save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Pro
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc1y_dis_all.pdf',width = 10,height = 15,onefile = F)
+auc_dis_all(all.auc.1y,
+            dataset = names(list_train_vali_Data),
+            validate_set=names(list_train_vali_Data)[-1],
+            order= names(list_train_vali_Data),
+            width = 0.2,
+            year=1)
+dev.off()
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc3y_dis_all.pdf',width = 10,height = 15,onefile = F)
+auc_dis_all(all.auc.3y,
+            dataset = names(list_train_vali_Data),
+            validate_set=names(list_train_vali_Data)[-1],
+            order= names(list_train_vali_Data),
+            width = 0.2,
+            year=3)
+dev.off()
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc5y_dis_all.pdf',width = 10,height = 15,onefile = F)
 auc_dis_all(all.auc.5y,
             dataset = names(list_train_vali_Data),
             validate_set=names(list_train_vali_Data)[-1],
             order= names(list_train_vali_Data),
-            year=1)
+            width = 0.2,
+            year=5)
+dev.off()
 
-# 或者展示RSF+SuperPC 在所有队列中的auc， 这里可能没有3年或者5年auc，队列中生存时间不够
+# 或者展示RSF + survival−SVM 在所有队列中的auc， 这里可能没有3年或者5年auc，队列中生存时间不够
 ## PMID: 35145098 参考文献
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc1y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
 roc_vis(all.auc.1y,
-        model_name = "RSF+SuperPC",
+        model_name = "RSF + survival-SVM",
         dataset = names(list_train_vali_Data),
+        order= names(list_train_vali_Data),
+        anno_position=c(0.65,0.55),
         year=1)
+dev.off()
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc3y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
+roc_vis(all.auc.3y,
+        model_name = "RSF + survival-SVM",
+        dataset = names(list_train_vali_Data),
+        order= names(list_train_vali_Data),
+        anno_position=c(0.65,0.55),
+        year=3)
+dev.off()
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc5y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
+roc_vis(all.auc.5y,
+        model_name = "RSF + survival-SVM",
+        dataset = names(list_train_vali_Data),
+        order= names(list_train_vali_Data),
+        anno_position=c(0.65,0.55),
+        year=5)
+dev.off()
 
 ####################### roc 可视化 （刘宏伟）  ###################################################
 
@@ -101,16 +158,6 @@ roc_vis(all.auc.1y,
 
 ############# compared with other clinical and molecular variables in predicting prognosis  ####
 ## PMID: 35145098 参考文献
-
-
-####################### KM曲线 生存分析 （刘宏伟）  ###################################################
-
-#
-##
-### KM曲线 生存分析 
-# 将RSF+SuperPC 生存分析的km曲线在所有10个队列中，直接提取risk score table就行
-
-
 
 ####################### 将RSF+SuperPC 的结果进行meta 分析 （张炜）   ################################
 
