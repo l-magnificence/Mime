@@ -15,7 +15,7 @@ rm(list = ls())
 # source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/Prognostic.model.con.R')
 
 
-#######################  可视化（刘宏伟 已经完成） ###################################################
+####################### Cindex 可视化（刘宏伟 已经完成） ###################################################
 
 load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
@@ -40,20 +40,44 @@ cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(l
 dev.off()
 
 ### RSF + survival−SVM 为最佳 的model
+# 单独展示RSF + survival-SVM 在所有队列中的cindex
 
-####################### KM曲线 生存分析 （刘宏伟）  ###################################################
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-#
-##
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/cindex_specific_model.pdf',width = 5,height = 5.5,onefile = F)
+cindex_dis_select(res,
+                  model="RSF + survival-SVM",
+                  order= names(list_train_vali_Data))
+dev.off()
+
+############# compared with other clinical and molecular variables in predicting prognosis  #### 
+## Not applicable so far
+## PMID: 35145098 参考文献
+
+####################### KM曲线 生存分析 （刘宏伟 已经完成）  ###################################################
+
 ### KM曲线 生存分析 
 # 将 RSF + survival−SVM 生存分析的km曲线在所有11个队列中，直接提取risk score table就行
 
-rs_sur(res, model_name = "StepCox[forward] + survival-SVM",dataset = "CGGA.693",
-       #color=c("blue","green"),
-       median.line = "hv",
-       cutoff = 0.5,
-       conf.int = T,
-       xlab="day",pval.coord=c(4000,0.6))
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
+load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/data/Glioma.cohort.Rdata")
+survplot <- vector("list",11) 
+for (i in c(1:11)) {
+  print(survplot[[i]]<-rs_sur(res, model_name = "RSF + survival-SVM",dataset = names(list_train_vali_Data)[i],
+                              #color=c("blue","green"),
+                              median.line = "hv",
+                              cutoff = 0.5,
+                              conf.int = T,
+                              xlab="Day",pval.coord=c(1000,0.9)))
+}
+
+library(patchwork)
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/sur_km.pdf',width = 15,height = 20,onefile = F)
+survplot[[1]]+survplot[[2]]+survplot[[3]]+survplot[[4]]+survplot[[5]]+survplot[[6]]+
+  survplot[[7]]+survplot[[8]]+survplot[[9]]+survplot[[10]]+survplot[[11]]+
+  plot_layout(ncol = 3)
+dev.off()
 
 ####################### 计算auc （张炜 刘宏伟 已经完成） ###################################################
 
@@ -68,7 +92,7 @@ save(all.auc.3y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Pro
 all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix.TCGA.Glioma,inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5)
 save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.5y.Rdata")
 
-
+rm(list = ls())
 #######################  auc 可视化（刘宏伟 已经完成） ###################################################
 
 #
@@ -77,6 +101,10 @@ save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Pro
 # 类似于C-index在所有model在所有队列中的表达，
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
+load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.1y.Rdata")
+load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.3y.Rdata")
+load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.5y.Rdata")
+load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/data/Glioma.cohort.Rdata")
 
 cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc1y_dis_all.pdf',width = 10,height = 15,onefile = F)
 auc_dis_all(all.auc.1y,
@@ -105,8 +133,25 @@ auc_dis_all(all.auc.5y,
             year=5)
 dev.off()
 
-# 或者展示RSF + survival−SVM 在所有队列中的auc， 这里可能没有3年或者5年auc，队列中生存时间不够
+# 或者展示RSF + survival-SVM 在所有队列中的auc， 这里可能没有3年或者5年auc，队列中生存时间不够
 ## PMID: 35145098 参考文献
+
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc_specific_model.pdf',width = 10,height = 5,onefile = F)
+auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
+               model_name="RSF + survival-SVM",
+               dataset = names(list_train_vali_Data),
+               order= names(list_train_vali_Data),
+               year=c(1,3,5))
+dev.off()
+
+####################### roc 可视化 （刘宏伟 已经完成）  ###################################################
+
+#
+##
+### roc 可视化 
+# 展示RSF + survival-SVM 在所有队列中？
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
@@ -136,28 +181,6 @@ roc_vis(all.auc.5y,
         anno_position=c(0.65,0.55),
         year=5)
 dev.off()
-
-####################### roc 可视化 （刘宏伟）  ###################################################
-
-#
-##
-### roc 可视化 
-# 展示RSF+SuperPC 在所有队列中？
-
-# see auc above 
-
-####################### Cindex 可视化 （刘宏伟）  ###################################################
-
-#
-##
-### Cindex 可视化 
-# 展示RSF+SuperPC 在所有队列中？
-
-# cindex were same in cindex_dis_all plot
-
-
-############# compared with other clinical and molecular variables in predicting prognosis  ####
-## PMID: 35145098 参考文献
 
 ####################### 将RSF+SuperPC 的结果进行meta 分析 （张炜）   ################################
 
@@ -216,7 +239,7 @@ forest(metamodel,
        layout = 'revman5') # 套用RevMan 5风格
 dev.off()
 
-####################### 将RSF+SuperPC 的结果进行多因素回归  （刘宏伟） ################################
+####################### 将RSF + survival-SVM 的结果进行多因素回归  （刘宏伟） ################################
 
 #
 ##
