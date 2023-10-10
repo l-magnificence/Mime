@@ -32,9 +32,9 @@ list_train_vali_Data = list(TCGA= sur.matrix.TCGA.Glioma,
                             GSE43289 =sur.matrix.GSE43289_Glioma,
                             GSE7696 = sur.matrix.GSE7696_Glioma
 )
-save(list_train_vali_Data,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/data/Glioma.cohort.Rdata")
+save(list_train_vali_Data,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/cindex_dis_all.pdf',width = 10,height = 15,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cindex_dis_all.pdf',width = 10,height = 15,onefile = F)
 cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.2)
 dev.off()
 
@@ -43,11 +43,13 @@ dev.off()
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/cindex_specific_model.pdf',width = 5,height = 5.5,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cindex_specific_model.pdf',width = 5,height = 5.5,onefile = F)
 cindex_dis_select(res,
                   model="RSF + survival-SVM",
                   order= names(list_train_vali_Data))
 dev.off()
+
+rm(list = ls())
 
 ############# compared with other clinical and molecular variables in predicting prognosis  #### 
 ## Not applicable so far
@@ -59,7 +61,9 @@ dev.off()
 # 将 RSF + survival−SVM 生存分析的km曲线在所有11个队列中，直接提取risk score table就行
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
-load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/data/Glioma.cohort.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
+load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
+
 survplot <- vector("list",11) 
 for (i in c(1:11)) {
   print(survplot[[i]]<-rs_sur(res, model_name = "RSF + survival-SVM",dataset = names(list_train_vali_Data)[i],
@@ -72,7 +76,7 @@ for (i in c(1:11)) {
 
 library(patchwork)
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/sur_km.pdf',width = 15,height = 20,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/sur_km.pdf',width = 15,height = 20,onefile = F)
 survplot[[1]]+survplot[[2]]+survplot[[3]]+survplot[[4]]+survplot[[5]]+survplot[[6]]+
   survplot[[7]]+survplot[[8]]+survplot[[9]]+survplot[[10]]+survplot[[11]]+
   plot_layout(ncol = 3)
@@ -82,14 +86,14 @@ dev.off()
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_AUC_ml_res.R')
 
-all.auc.1y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix.TCGA.Glioma,inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1)
-save(all.auc.1y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.1y.Rdata")
+all.auc.1y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1)
+save(all.auc.1y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.1y.Rdata")
 
-all.auc.3y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix.TCGA.Glioma,inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 3)
-save(all.auc.3y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.3y.Rdata")
+all.auc.3y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 3)
+save(all.auc.3y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y.Rdata")
 
-all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = sur.matrix.TCGA.Glioma,inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5)
-save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.5y.Rdata")
+all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5)
+save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y.Rdata")
 
 rm(list = ls())
 #######################  auc 可视化（刘宏伟 已经完成） ###################################################
@@ -100,12 +104,12 @@ rm(list = ls())
 # 类似于C-index在所有model在所有队列中的表达，
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
-load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.1y.Rdata")
-load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.3y.Rdata")
-load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/all.auc.5y.Rdata")
-load("~/bioinfo_mill/Mime_proj/Proj.P1/Mime/data/Glioma.cohort.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Monamdel/all.auc.1y.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc1y_dis_all.pdf',width = 10,height = 15,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc1y_dis_all.pdf',width = 10,height = 15,onefile = F)
 auc_dis_all(all.auc.1y,
             dataset = names(list_train_vali_Data),
             validate_set=names(list_train_vali_Data)[-1],
@@ -114,7 +118,7 @@ auc_dis_all(all.auc.1y,
             year=1)
 dev.off()
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc3y_dis_all.pdf',width = 10,height = 15,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc3y_dis_all.pdf',width = 10,height = 15,onefile = F)
 auc_dis_all(all.auc.3y,
             dataset = names(list_train_vali_Data),
             validate_set=names(list_train_vali_Data)[-1],
@@ -123,7 +127,7 @@ auc_dis_all(all.auc.3y,
             year=3)
 dev.off()
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc5y_dis_all.pdf',width = 10,height = 15,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc5y_dis_all.pdf',width = 10,height = 15,onefile = F)
 auc_dis_all(all.auc.5y,
             dataset = names(list_train_vali_Data),
             validate_set=names(list_train_vali_Data)[-1],
@@ -137,7 +141,7 @@ dev.off()
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc_specific_model.pdf',width = 10,height = 5,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc_specific_model.pdf',width = 10,height = 5,onefile = F)
 auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
                model_name="RSF + survival-SVM",
                dataset = names(list_train_vali_Data),
@@ -154,7 +158,7 @@ dev.off()
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc1y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc1y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
 roc_vis(all.auc.1y,
         model_name = "RSF + survival-SVM",
         dataset = names(list_train_vali_Data),
@@ -163,7 +167,7 @@ roc_vis(all.auc.1y,
         year=1)
 dev.off()
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc3y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc3y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
 roc_vis(all.auc.3y,
         model_name = "RSF + survival-SVM",
         dataset = names(list_train_vali_Data),
@@ -172,7 +176,7 @@ roc_vis(all.auc.3y,
         year=3)
 dev.off()
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/Proj.P1/Mime/res/1.Prog.Model/auc5y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc5y_roc.pdf',width = 7.5,height = 7.0,onefile = F)
 roc_vis(all.auc.5y,
         model_name = "RSF + survival-SVM",
         dataset = names(list_train_vali_Data),
