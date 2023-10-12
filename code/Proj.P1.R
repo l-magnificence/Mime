@@ -97,7 +97,7 @@ all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train
 save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y.Rdata")
 
 rm(list = ls())
-#######################  auc 可视化（刘宏伟 已经完成） ###################################################
+####################### auc 可视化（刘宏伟 已经完成） ###################################################
 
 ### auc 可视化
 # 类似于C-index在所有model在所有队列中的表达，
@@ -182,32 +182,20 @@ roc_vis(all.auc.5y,
         year=5)
 dev.off()
 
-####################### 将RSF+SuperPC 的结果进行meta 分析 （张炜）   ################################
+####################### 将optimal.model 的结果进行meta 分析 （张炜 已经完成）   ################################
 
-## 将RSF+SuperPC 的结果进行meta 分析
+## 将optimal.model 的结果进行meta 分析
 
 # step1 计算RS 的单因素回归 结果
 
-mm = res$riskscore$`RSF + SuperPC`
+source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_unicox_ml_res.R')
+
+optimal.model = 'RSF + survival-SVM'
+
+mm = res[["riskscore"]][[optimal.model]]
 
 
-unicox.cal = lapply(mm,function(x){
-
-  tmp <- x
-  cox <- coxph(Surv(OS.time, OS) ~ RS, data = tmp)
-  coxSummary <- summary(cox)
-  
-  unicox = c( as.numeric(coxSummary$coefficients[,"exp(coef)"])[1],
-              as.numeric(coxSummary$coefficients[,"Pr(>|z|)"])[1],
-              as.numeric(coxSummary$conf.int[,3][1]),
-              as.numeric(coxSummary$conf.int[,4][1])
-  )
-  
-  return(unicox)})
-
-unicox.rs.res = unicox.cal  %>% do.call(rbind,.)
-colnames(unicox.rs.res) = c('HR','pvalue',"LCI",'HCI')
-
+unicox.rs.res = cal_unicox_ml_res(res.by.ML.Dev.Prog.Sig = res,optimal.model = optimal.model)
 
 
 
@@ -218,19 +206,9 @@ colnames(unicox.rs.res) = c('HR','pvalue',"LCI",'HCI')
 
 
 # step2 meta analysis
-library(meta)
-input <- unicox.rs.res %>% as.data.frame() %>%
-  mutate(`Hazard Ratio(95%CI)` = paste(HR,'(',LCI,'-',HCI,')',sep=""))
-input$Group = rownames(input)
-# 对不服从正态分布的HR对数转换
-lnhr <- log(input$HR)
-lnlci <- log(input$LCI)
-lnhci <- log(input$HCI)
-selnhr <- (lnhci-lnlci)/(2*1.96)
-metamodel = metagen(TE = lnhr, seTE = selnhr,
-                    sm="HR",            # 待合并的效应量
-                    data=input,  # 输入数据
-                    studlab=Group)     # 研究标签
+source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_unicox_meta_ml_res.R')
+
+metamodel = cal_unicox_meta_ml_res(input = unicox.rs.res)
 
 
 pdf("meta_random_rs.rsf.superpc.pdf", width = 12, height = 5)
@@ -239,7 +217,7 @@ forest(metamodel,
        layout = 'revman5') # 套用RevMan 5风格
 dev.off()
 
-####################### 将RSF + survival-SVM 的结果进行多因素回归  （刘宏伟） ################################
+####################### 将optimal.model的结果进行多因素回归  （刘宏伟） ################################
 
 #
 ##
@@ -249,10 +227,70 @@ dev.off()
 
 
 
-####################### 将RSF+SuperPC 的结果和已经发表的文章的signature进行比较 （张炜，刘宏伟，张益浩）  ################################
-### 这个需要等张益浩收集完所有的signature， 主要是张益浩，其余人辅助收集
-### 张炜负责将signature 计算成riskscore
-### 刘宏伟 负责可视化
+####################### 将optimal.model的结果和已经发表的文章的signature进行比较 （张炜，刘宏伟，张益浩）  ################################
+####################### 收集完所有glioma 相关的signature（张益浩已完成）#############################
+# load('/export3/zhangw/Project_Cross/Project_Mime/data/sig/glioma.sig.Rdata')
+# load('/export3/zhangw/Project_Cross/Project_Mime/data/sig/lgg.sig.Rdata')
+# load('/export3/zhangw/Project_Cross/Project_Mime/data/sig/gbm.sig.Rdata')
+
+
+#######################  将signature 计算成riskscore （张炜已完成）####################################
+# rm(list = ls())
+# gc()
+source('/export3/zhangw/Project_Cross/Project_Mime/Proj/data/Glioma.cohort.R')
+
+list_train_vali_Data = list(TCGA= sur.matrix.TCGA.Glioma,
+                            CGGA.325 = sur.matrix.CGGA_RNAseq_325_FPKM_Glioma,
+                            CGGA.693 = sur.matrix.CGGA_RNAseq_693_FPKM_Glioma,
+                            CGGA.1018 = sur.matrix.CGGA_RNAseq_1018_FPKM_Glioma,
+                            CGGA.array = sur.matrix.CGGA_array_Glioma,
+                            GLASS_R1 = sur.matrix.GLASS_R1_Glioma,
+                            GLASS_TP = sur.matrix.GLASS_TP_Glioma,
+                            GSE108474 = sur.matrix.GSE108474_Glioma,
+                            GSE16011 = sur.matrix.GSE16011_Glioma,
+                            GSE43289 =sur.matrix.GSE43289_Glioma,
+                            GSE7696 = sur.matrix.GSE7696_Glioma
+)
+
+
+source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_RS_pre.prog.sig.R")
+# rs.glioma = cal_RS_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
+# rs.gbm = cal_RS_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data)
+# rs.lgg = cal_RS_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
+# rs.lgg.GBM = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM'),list_input_data = list_train_vali_Data)
+rs.glioma.lgg.gbm = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM','Glioma'),list_input_data = list_train_vali_Data)
+
+source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_cindex_pre.prog.sig.R")
+
+cc.glioma.lgg.gbm = cal_cindex_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data)
+# cc.gbm = cal_cindex_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data)
+# cc.lgg = cal_cindex_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
+# cc.glioma= cal_cindex_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
+
+source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_auc_pre.prog.sig.R')
+
+auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1)
+auc.glioma.lgg.gbm.3 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 3)
+auc.glioma.lgg.gbm.5 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 5)
+
+
+# auc.glioma.1 = cal_auc_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data,AUC_time = 1)
+# auc.glioma.3 = cal_auc_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data,AUC_time = 3)
+# auc.glioma.5 = cal_auc_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data,AUC_time = 5)
+# 
+# 
+# auc.gbm.1 = cal_auc_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data,AUC_time = 1)
+# auc.gbm.3 = cal_auc_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data,AUC_time = 3)
+# auc.gbm.5 = cal_auc_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data,AUC_time = 5)
+# 
+# 
+# auc.lgg.1 = cal_auc_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data,AUC_time = 1)
+# auc.lgg.3 = cal_auc_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data,AUC_time = 3)
+# auc.lgg.5 = cal_auc_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data,AUC_time = 5)
+
+
+
+########################## 可视化（刘宏伟 ）########################################
 
 
 ## PMID: 35145098 参考文献
@@ -270,27 +308,47 @@ dev.off()
 
 
 
-# 2.0 利用1.0中建立的RSF+SuperPC预后模型进行免疫浸润的分析（张益浩） -----------------------------------------------------
+# 2.0 利用1.0中建立的optimal.model预后模型进行免疫浸润的分析（张益浩） -----------------------------------------------------
 
 ### 这里应该是同一套代码，在TCGA, CGGA325, CGGA693, CGGA1018 四个队列中都跑一遍 
 
 
 
  
-# 3.0 利用1.0中建立的RSF+SuperPC预后模型进行富集的分析（刘宏伟） -----------------------------------------------------
+# 3.0 利用1.0中建立的optimal.model预后模型进行富集的分析（张益浩） -----------------------------------------------------
 
 
 
-# 4.0 分类变量的预测模型的建立--这里是预测免疫治疗反应与否(张炜)  -----------------------------------------------------
+# 4.0 分类变量的预测模型的建立--这里是预测免疫治疗反应与否(张炜计算,已经完成, 可视化刘宏伟)  -----------------------------------------------------
+
+setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/4.ICI_response")
+
+#######################利用ml建立预测免疫治疗反应的model (张炜 已经完成)############################################
+# source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ICI.response.model.R')
+
+load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/4.ICI_response/ICIresponse.model.all.p1.Rdata")
+
+#######################可视化建立的预测ICI反应的model (刘宏伟)############################################
 
 
 
-# 5.0 核心feature的选择（和预后相关）(张炜已完成)  -----------------------------------------------------
+# 5.0 核心feature的选择（和预后相关）(计算张炜，已完成， 可视化刘宏伟)  -----------------------------------------------------
+
+#######################核心feature的选择（和预后相关) (张炜 已完成)############################################
+
 
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
 # dir.create('5.CoreFeature')
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature")
 
+# 计算
+# source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ML.CoreFeature.R')
+
+load('/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature/feature.all.res.Rdata')
+
+#######################可视化 (刘宏伟)################################################################
+
+# 6.0 在核心feature中选择某一个关键基因进行单基因分析的一整套(预后,差异,回归,龙哥的paper那一套)（刘宏伟） ----------------------------------------------------
 
 
 
