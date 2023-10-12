@@ -233,25 +233,24 @@ dev.off()
 # load('/export3/zhangw/Project_Cross/Project_Mime/data/sig/lgg.sig.Rdata')
 # load('/export3/zhangw/Project_Cross/Project_Mime/data/sig/gbm.sig.Rdata')
 
-
 #######################  将signature 计算成riskscore （张炜已完成）####################################
 # rm(list = ls())
 # gc()
-source('/export3/zhangw/Project_Cross/Project_Mime/Proj/data/Glioma.cohort.R')
-
-list_train_vali_Data = list(TCGA= sur.matrix.TCGA.Glioma,
-                            CGGA.325 = sur.matrix.CGGA_RNAseq_325_FPKM_Glioma,
-                            CGGA.693 = sur.matrix.CGGA_RNAseq_693_FPKM_Glioma,
-                            CGGA.1018 = sur.matrix.CGGA_RNAseq_1018_FPKM_Glioma,
-                            CGGA.array = sur.matrix.CGGA_array_Glioma,
-                            GLASS_R1 = sur.matrix.GLASS_R1_Glioma,
-                            GLASS_TP = sur.matrix.GLASS_TP_Glioma,
-                            GSE108474 = sur.matrix.GSE108474_Glioma,
-                            GSE16011 = sur.matrix.GSE16011_Glioma,
-                            GSE43289 =sur.matrix.GSE43289_Glioma,
-                            GSE7696 = sur.matrix.GSE7696_Glioma
-)
-
+# source('/export3/zhangw/Project_Cross/Project_Mime/Proj/data/Glioma.cohort.R')
+# 
+# list_train_vali_Data = list(TCGA= sur.matrix.TCGA.Glioma,
+#                             CGGA.325 = sur.matrix.CGGA_RNAseq_325_FPKM_Glioma,
+#                             CGGA.693 = sur.matrix.CGGA_RNAseq_693_FPKM_Glioma,
+#                             CGGA.1018 = sur.matrix.CGGA_RNAseq_1018_FPKM_Glioma,
+#                             CGGA.array = sur.matrix.CGGA_array_Glioma,
+#                             GLASS_R1 = sur.matrix.GLASS_R1_Glioma,
+#                             GLASS_TP = sur.matrix.GLASS_TP_Glioma,
+#                             GSE108474 = sur.matrix.GSE108474_Glioma,
+#                             GSE16011 = sur.matrix.GSE16011_Glioma,
+#                             GSE43289 =sur.matrix.GSE43289_Glioma,
+#                             GSE7696 = sur.matrix.GSE7696_Glioma
+# )
+load("~/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
 source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_RS_pre.prog.sig.R")
 # rs.glioma = cal_RS_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
@@ -259,21 +258,27 @@ source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_RS_pre.prog.sig.
 # rs.lgg = cal_RS_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
 # rs.lgg.GBM = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM'),list_input_data = list_train_vali_Data)
 rs.glioma.lgg.gbm = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM','Glioma'),list_input_data = list_train_vali_Data)
+save(rs.glioma.lgg.gbm,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/rs.glioma.lgg.gbm.Rdata")
 
 source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_cindex_pre.prog.sig.R")
-
-cc.glioma.lgg.gbm = cal_cindex_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data)
 # cc.gbm = cal_cindex_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data)
 # cc.lgg = cal_cindex_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
 # cc.glioma= cal_cindex_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
+cc.glioma.lgg.gbm = cal_cindex_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data)
+save(cc.glioma.lgg.gbm,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cc.glioma.lgg.gbm.Rdata")
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_auc_pre.prog.sig.R')
 
 auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1)
+save(auc.glioma.lgg.gbm.1,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1.Rdata")
+
 auc.glioma.lgg.gbm.3 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 3)
+save(auc.glioma.lgg.gbm.3,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.3.Rdata")
+
 auc.glioma.lgg.gbm.5 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 5)
+save(auc.glioma.lgg.gbm.5,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.5.Rdata")
 
-
+rm(list = ls())
 # auc.glioma.1 = cal_auc_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data,AUC_time = 1)
 # auc.glioma.3 = cal_auc_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data,AUC_time = 3)
 # auc.glioma.5 = cal_auc_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data,AUC_time = 5)
@@ -288,18 +293,62 @@ auc.glioma.lgg.gbm.5 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),l
 # auc.lgg.3 = cal_auc_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data,AUC_time = 3)
 # auc.lgg.5 = cal_auc_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data,AUC_time = 5)
 
+########################## 可视化（刘宏伟 已经完成）########################################
 
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-########################## 可视化（刘宏伟 ）########################################
-
+load("~/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
 ## PMID: 35145098 参考文献
+# 热图展示所有 signature的预后关系, 单因素回归的HR和p值
+load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/rs.glioma.lgg.gbm.Rdata")
+load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
 
-# 热图展示所有 signature的预后关系
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/hr_comp.pdf',width = 36,height = 6,onefile = F)
+HR_com(rs.glioma.lgg.gbm,
+       res,
+       model_name="RSF + survival-SVM",
+       dataset=names(list_train_vali_Data))
+dev.off()
 
-# 比较 Cindex, auc(1,3,5?), 单因素回归的HR和p值，某几个队列中多因素回归的结果
+# 比较 Cindex
+load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/cc.glioma.lgg.gbm.Rdata")
 
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cindex_comp.pdf',width = 32,height = 13,onefile = F)
+cindex_comp(cc.glioma.lgg.gbm,
+            res,
+            model_name="RSF + survival-SVM",
+            dataset=names(list_train_vali_Data))
+dev.off()
 
+# 比较 auc(1,3,5)
+load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1.Rdata")
+load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.3.Rdata")
+load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.5.Rdata")
+Load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.1y.Rdata")
+load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y.Rdata")
+load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y.Rdata")
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc_comp_1y.pdf',width = 32,height = 13,onefile = F)
+auc_comp(auc.glioma.lgg.gbm.1,
+         all.auc.1y,
+         model_name="RSF + survival-SVM",
+         dataset=names(list_train_vali_Data))
+dev.off()
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc_comp_3y.pdf',width = 32,height = 13,onefile = F)
+auc_comp(auc.glioma.lgg.gbm.3,
+         all.auc.3y,
+         model_name="RSF + survival-SVM",
+         dataset=names(list_train_vali_Data))
+dev.off()
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc_comp_5y.pdf',width = 32,height = 13,onefile = F)
+auc_comp(auc.glioma.lgg.gbm.5,
+         all.auc.5y,
+         model_name="RSF + survival-SVM",
+         dataset=names(list_train_vali_Data))
+dev.off()
 
 ####################### 就预后模型这一块还有什么要补充的吗 ########################################################
 ### 欢迎补充
