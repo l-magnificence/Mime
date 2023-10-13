@@ -87,14 +87,17 @@ dev.off()
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_AUC_ml_res.R')
 
-all.auc.1y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1)
-save(all.auc.1y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.1y.Rdata")
+all.auc.1y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1,
+                            auc_cal_method="KM")
+save(all.auc.1y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.1y_km.Rdata")
 
-all.auc.3y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 3)
-save(all.auc.3y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y.Rdata")
+all.auc.3y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 3,
+                            auc_cal_method="KM")
+save(all.auc.3y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y_km.Rdata")
 
-all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5)
-save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y.Rdata")
+all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["TCGA"]],inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5,
+                            auc_cal_method="KM")
+save(all.auc.5y,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y_km.Rdata")
 
 rm(list = ls())
 ####################### auc 可视化（刘宏伟 已经完成） ###################################################
@@ -103,9 +106,9 @@ rm(list = ls())
 # 类似于C-index在所有model在所有队列中的表达，
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
-load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Monamdel/all.auc.1y.Rdata")
-load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y.Rdata")
-load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.1y_km.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y_km.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y_km.Rdata")
 load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
 cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc1y_dis_all.pdf',width = 10,height = 15,onefile = F)
@@ -185,17 +188,12 @@ dev.off()
 ####################### 将optimal.model 的结果进行meta 分析 （张炜 已经完成）   ################################
 
 ## 将optimal.model 的结果进行meta 分析
-
 # step1 计算RS 的单因素回归 结果
-
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_unicox_ml_res.R')
-
 optimal.model = 'RSF + survival-SVM'
-
 mm = res[["riskscore"]][[optimal.model]]
 
-
-unicox.rs.res = cal_unicox_ml_res(res.by.ML.Dev.Prog.Sig = res,optimal.model = optimal.model)
+unicox.rs.res = cal_unicox_ml_res(res.by.ML.Dev.Prog.Sig = res,optimal.model = optimal.model,type ='categorical')
 
 
 
@@ -269,14 +267,17 @@ save(cc.glioma.lgg.gbm,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_p
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_auc_pre.prog.sig.R')
 
-auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1)
-save(auc.glioma.lgg.gbm.1,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1.Rdata")
+auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1,
+                                            auc_cal_method = 'KM')
+save(auc.glioma.lgg.gbm.1,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1_km.Rdata")
 
-auc.glioma.lgg.gbm.3 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 3)
-save(auc.glioma.lgg.gbm.3,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.3.Rdata")
+auc.glioma.lgg.gbm.3 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 3,
+                                            auc_cal_method = 'KM')
+save(auc.glioma.lgg.gbm.3,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.3_km.Rdata")
 
-auc.glioma.lgg.gbm.5 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 5)
-save(auc.glioma.lgg.gbm.5,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.5.Rdata")
+auc.glioma.lgg.gbm.5 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 5,
+                                            auc_cal_method = 'KM')
+save(auc.glioma.lgg.gbm.5,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.5_km.Rdata")
 
 rm(list = ls())
 # auc.glioma.1 = cal_auc_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data,AUC_time = 1)
@@ -297,22 +298,23 @@ rm(list = ls())
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-load("~/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
 ## PMID: 35145098 参考文献
 # 热图展示所有 signature的预后关系, 单因素回归的HR和p值
-load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/rs.glioma.lgg.gbm.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/rs.glioma.lgg.gbm.Rdata")
 load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
 
 cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/hr_comp.pdf',width = 36,height = 6,onefile = F)
 HR_com(rs.glioma.lgg.gbm,
        res,
        model_name="RSF + survival-SVM",
-       dataset=names(list_train_vali_Data))
+       dataset=names(list_train_vali_Data),
+       type = "categorical")
 dev.off()
 
 # 比较 Cindex
-load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/cc.glioma.lgg.gbm.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cc.glioma.lgg.gbm.Rdata")
 
 cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cindex_comp.pdf',width = 32,height = 13,onefile = F)
 cindex_comp(cc.glioma.lgg.gbm,
@@ -322,12 +324,12 @@ cindex_comp(cc.glioma.lgg.gbm,
 dev.off()
 
 # 比较 auc(1,3,5)
-load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1.Rdata")
-load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.3.Rdata")
-load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.5.Rdata")
-Load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.1y.Rdata")
-load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y.Rdata")
-load("~/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1_km.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.3_km.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.5_km.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.1y_km.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.3y_km.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/all.auc.5y_km.Rdata")
 
 cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc_comp_1y.pdf',width = 32,height = 13,onefile = F)
 auc_comp(auc.glioma.lgg.gbm.1,
