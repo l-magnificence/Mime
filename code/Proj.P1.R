@@ -3,10 +3,10 @@
 
 # 1.0 利用ml建立预后模型 ----------------------------------------------------------
 
-setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
-# dir.create('1.Prog.Model')
-setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model")
-rm(list = ls())
+# setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
+# # dir.create('1.Prog.Model')
+# setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model")
+# rm(list = ls())
 
 ##
 
@@ -190,40 +190,245 @@ dev.off()
 ## 将optimal.model 的结果进行meta 分析
 # step1 计算RS 的单因素回归 结果
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_unicox_ml_res.R')
+load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
 optimal.model = 'RSF + survival-SVM'
-mm = res[["riskscore"]][[optimal.model]]
 
 unicox.rs.res = cal_unicox_ml_res(res.by.ML.Dev.Prog.Sig = res,optimal.model = optimal.model,type ='categorical')
-
-
-
-#
-## 
-### 单因素回归结果 可视化美化，如果可以的话？ （刘宏伟）
-
-
-
 # step2 meta analysis
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_unicox_meta_ml_res.R')
 
 metamodel = cal_unicox_meta_ml_res(input = unicox.rs.res)
+save(metamodel,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/metamodel.Rdata")
 
+####################### 单因素回归结果 可视化（刘宏伟 已经完成） #######################
 
-pdf("meta_random_rs.rsf.superpc.pdf", width = 12, height = 5)
-forest(metamodel,
-       comb.fixed = F, comb.random = T,
-       layout = 'revman5') # 套用RevMan 5风格
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/metamodel.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
+
+tiff("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/meta_rs_rsf_survivalSVM.tiff", units ="in",
+     width = 9.0, height = 4.5,res = 600,compression ='zip')
+meta_unicox_vis(metamodel,
+                dataset = names(list_train_vali_Data))
 dev.off()
 
-####################### 将optimal.model的结果进行多因素回归  （刘宏伟） ################################
+rm(list = ls())
 
-#
-##
+####################### 将optimal.model的结果进行多因素回归  （刘宏伟 已经完成） ################################
+
+library(ezcox)
+library(forestploter)
+library(grid)
+load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
+# load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
+optimal.model = 'RSF + survival-SVM'
+multic_cox<-data.frame()
+multic_cox_model<-list()
+
 ### 多因素回归
+# TCGA
+datasets<-"TCGA"
+meta <- readRDS("/export/bioinfo-team/home/liuhw/bioinfo_mill/dataset/tcga_glioma/processed/tcga_meta_glioma_match2016cell.rds")
+rs <- res[["riskscore"]][[optimal.model]][[datasets]]
+rownames(rs)<-rs$ID
+rownames(rs)<-gsub("\\.","-",rownames(rs))
+meta<-meta[rownames(rs),]
+meta<-cbind(meta,rs)
 
-# 在TCGA, CGGA325,CGGA693, CGGA1018等中进行多因素回归， 变量的选择？
+data<-dplyr::select(meta,c("Age (years at diagnosis)","Gender","Grade","IDH status","1p/19q codeletion","MGMT promoter status",
+                           "OS","OS.time","RS"))
+colnames(data)<-c("Age","Gender","Grade","IDH","Chr1p/19q","MGMT",
+                  "status","time","RS")
+data$Age<-as.numeric(data$Age)
+data<-data[data$IDH !="NA",]
+data<-data[data$`Chr1p/19q` !="NA",]
+data<-data[data$MGMT !="NA",]
+
+data$`Risk score`<-ifelse(data[,"RS"]>median(data[,"RS"]),"High","Low")
+data$`Risk score`<-factor(data$`Risk score`,levels=c("Low","High"))
+data$Age<-ifelse(data$Age>50,">50","<50")
+data$Age<-factor(data$Age,levels = c("<50",">50"))
+data[data$Gender=="female","Gender"]<-"Female"
+data[data$Gender=="male",'Gender']<-"Male"
+data$Gender<-factor(data$Gende,levels=c("Female","Male"))
+data$Grade<-factor(data$Grade,levels=c("G2","G3","G4"))
+data[data$IDH=="WT","IDH"]<-"Wildtype"
+data$IDH<-factor(data$IDH,levels=c("Wildtype","Mutant"))
+data$MGMT<-factor(data$MGMT,levels=c("Unmethylated","Methylated"))
+data[data$`Chr1p/19q`=="non-codel","Chr1p/19q"]<-"Non-codel"
+data[data$`Chr1p/19q`=="codel","Chr1p/19q"]<-"Codel"
+data$`Chr1p/19q`<-factor(data$`Chr1p/19q`,levels=c("Non-codel","Codel"))
+
+ezcox_res <- ezcox(data,
+                   covariates = c("Risk score"),
+                   controls = c("Gender","Age","Grade","IDH","Chr1p/19q","MGMT"),
+                   return_models=TRUE)
+
+tmp<-as.data.frame(ezcox_res[["res"]])
+tmp$Variable<-c("Risk score","Gender","Age","Grade","","IDH","Chr1p/19q","MGMT")
+tmp$Cohorts<-c(datasets,"","","","","","","")
+multic_cox<-rbind(multic_cox,tmp)
+multic_cox_model[[datasets]]<-get_models(ezcox_res)
+show_models(multic_cox_model[[datasets]])
+
+#CGGA
+for (i in c("CGGA.325","CGGA.693","CGGA.1018")) {
+  datasets<-i
+  meta <- readRDS("/export/bioinfo-team/home/liuhw/bioinfo_mill/dataset/CGGA_data//processed_data/cgga_clinic.rds")
+  rs <- res[["riskscore"]][[optimal.model]][[datasets]]
+  rownames(rs)<-rs$ID
+  rownames(meta)<-meta$CGGA_ID
+  meta<-meta[rownames(rs),]
+  meta<-cbind(meta[,-7],rs)
+  
+  data<-dplyr::select(meta,c("Age","Gender","Grade","IDH_mutation_status","1p19q_codeletion_status","MGMTp_methylation_status",
+                             "OS","OS.time","RS"))
+  colnames(data)<-c("Age","Gender","Grade","IDH","Chr1p/19q","MGMT",
+                    "status","time","RS")
+  data$Age<-as.numeric(data$Age)
+  data<-data[! is.na(data$Grade),]
+  data<-data[! is.na(data$IDH),]
+  data<-data[! is.na(data$MGMT),]
+  data<-data[! is.na(data$`Chr1p/19q`),]
+  
+  data$`Risk score`<-ifelse(data[,"RS"]>median(data[,"RS"]),"High","Low")
+  data$`Risk score`<-factor(data$`Risk score`,levels=c("Low","High"))
+  data$Age<-ifelse(data$Age>50,">50","<50")
+  data$Age<-factor(data$Age,levels = c("<50",">50"))
+  data$Gender<-factor(data$Gende,levels=c("Female","Male"))
+  data[data$Grade=="WHO II","Grade"]<-"G2"
+  data[data$Grade=="WHO III","Grade"]<-"G3"
+  data[data$Grade=="WHO IV","Grade"]<-"G4"
+  data$Grade<-factor(data$Grade,levels=c("G2","G3","G4"))
+  data$IDH<-factor(data$IDH,levels=c("Wildtype","Mutant"))
+  data[data$MGMT=="un-methylated","MGMT"]<-"Unmethylated"
+  data[data$MGMT=="methylated","MGMT"]<-"Methylated"
+  data$MGMT<-factor(data$MGMT,levels=c("Unmethylated","Methylated"))
+  data$`Chr1p/19q`<-factor(data$`Chr1p/19q`,levels=c("Non-codel","Codel"))
+  
+  ezcox_res <- ezcox(data,
+                     covariates = c("Risk score"),
+                     controls = c("Gender","Age","Grade","IDH","Chr1p/19q","MGMT"),
+                     return_models=TRUE)
+  
+  tmp<-as.data.frame(ezcox_res[["res"]])
+  tmp$Variable<-c("Risk score","Gender","Age","Grade","","IDH","Chr1p/19q","MGMT")
+  tmp$Cohorts<-c(datasets,"","","","","","","")
+  multic_cox<-rbind(multic_cox,tmp)
+  multic_cox_model[[datasets]]<-get_models(ezcox_res)
+  show_models(multic_cox_model[[datasets]])
+  
+}
+
+# gse16011
+# datasets<-"GSE16011"
+# meta <- readRDS("~/bioinfo_mill/dataset/glioma/processed_data/GSE16011_meta.rds")
+# rs <- res[["riskscore"]][[optimal.model]][[datasets]]
+# rownames(rs)<-rs$ID
+# meta<-meta[rownames(rs),]
+# meta<-cbind(meta,rs)
+# 
+# data<-dplyr::select(meta,c("Ageat diagnosis","Gender","grade","IDH1 (R132) mutation","1p","19q",
+#                            "OS","OS.time","RS"))
+# colnames(data)<-c("Age","Gender","Grade","IDH","Chr1p","Chr19q",
+#                   "status","time","RS")
+# data$Age<-as.numeric(data$Age)
+# data<-data[! is.na(data$Grade),]
+# data<-data[! is.na(data$IDH),]
+# data<-data[! is.na(data$Chr1p),]
+# data<-data[! is.na(data$Chr19q),]
+# 
+# data$`Risk score`<-ifelse(data[,"RS"]>median(data[,"RS"]),"High","Low")
+# data$`Risk score`<-factor(data$`Risk score`,levels=c("Low","High"))
+# data$Age<-ifelse(data$Age>50,">50","<50")
+# data$Age<-factor(data$Age,levels = c("<50",">50"))
+# data$Gender<-factor(data$Gende,levels=c("Female","Male"))
+# data[data$Grade=="gradeII","Grade"]<-"G2"
+# data[data$Grade=="gradeIII","Grade"]<-"G3"
+# data[data$Grade=="gradeIV","Grade"]<-"G4"
+# data$Grade<-factor(data$Grade,levels=c("G2","G3","G4"))
+# data[data$IDH=="no mutation","IDH"]<-"Wildtype"
+# data[data$IDH=="mutation","IDH"]<-"Mutant"
+# data$IDH<-factor(data$IDH,levels=c("Wildtype","Mutant"))
+# data$`Chr1p/19q`<-ifelse(data$Chr1p %in% c("LOH","partial LOH") & data$Chr19q %in% c("LOH","partial LOH"),"Codel","Non-codel")
+# data$`Chr1p/19q`<-factor(data$`Chr1p/19q`,levels=c("Non-codel","Codel"))
+# 
+# ezcox_res <- ezcox(data,
+#                    covariates = c("Risk score"),
+#                    controls = c("Gender","Age","Grade","IDH","Chr1p/19q"),
+#                    return_models=TRUE)
+# show_models(get_models(ezcox_res))
+
+save(multic_cox,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/multic_cox.Rdata")
+save(multic_cox_model,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/multic_cox_model.Rdata")
+
+## plot
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/multic_cox.Rdata")
+dt<-multic_cox
+dt$se <- (log(dt$upper_95) - log(dt$HR))/1.96
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+dt$`HR (95% CI)` <- ifelse(is.na(dt$n_contrast), "",
+                           sprintf("%.2f (%.2f - %.2f)",
+                                   dt$HR, dt$lower_95, dt$upper_95))
+dt$P <- ifelse(dt$p.value<0.001, "P<0.001",sprintf("%.3f",dt$p.value))
+colnames(dt)[c(3:6,17)]<-c("Contrast","Reference","Number of contrast","Number of reference","P value")
+
+tm <- forest_theme(core=list(bg_params=list(fill =c(rep("#3182BDFF",8),rep("#E6550DFF",8),rep("#31A354FF",8),rep("#756BB1FF",8)),
+                                            alpha =rep(c(0.7,rep(0.5,7)),4))),
+                   base_size = 10,
+                   # Confidence interval point shape, line type/color/width
+                   ci_pch = 16,
+                   ci_col = "#762a83",
+                   ci_lty = 1,
+                   ci_lwd = 1.5,
+                   ci_Theight = 0.2, # Set an T end at the end of CI 
+                   # Reference line width/type/color
+                   refline_lwd = 1,
+                   refline_lty = "dashed",
+                   refline_col = "grey20",
+                   # Vertical line width/type/color
+                   vertline_lwd = 1,
+                   vertline_lty = "dashed",
+                   vertline_col = "grey20",
+                   # Change summary color for filling and borders
+                   summary_fill = "#4575b4",
+                   summary_col = "#4575b4",
+                   # Footnote font size/face/color
+                   footnote_cex = 1,
+                   footnote_fontface = "italic",
+                   footnote_col = "red")
+
+p <-forestploter::forest(dt[,c(13,1,4,3,6,5,15:17)],
+                     est = dt$HR,
+                     lower = dt$lower_95, 
+                     upper = dt$upper_95,
+                     sizes = dt$se,
+                     #is_summary = c(rep(FALSE, nrow(dt)-2), TRUE,TRUE),
+                     ci_column = 7,
+                     ref_line = 1,
+                     arrow_lab = c("Better", "Worse"),
+                     #xlim = c(0, 1.5),
+                     #ticks_at = c(0.5, 1, 2, 5,7.5),
+                     x_trans="log2",
+                     footnote = " Multivariate Cox Regression",
+                     theme = tm)
+p <- add_text(p, text = "Multivariate Cox regression in different cohorts",
+              part = "header",
+              row = 0,
+              col = 4:7,
+              just = c("center"),
+              gp = gpar(fontface = "bold"))
+
+p <- add_border(p, 
+                part = "header", 
+                row = c(0,1),
+                gp = gpar(lwd = 1))
 
 
+tiff("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/multi_rs_rsf_survivalSVM.tiff", units ="in",
+     width = 10.5, height = 8.5,res = 600,compression ='zip')
+p                
+dev.off()
 
 ####################### 将optimal.model的结果和已经发表的文章的signature进行比较 （张炜，刘宏伟，张益浩）  ################################
 ####################### 收集完所有glioma 相关的signature（张益浩已完成）#############################
@@ -352,11 +557,49 @@ auc_comp(auc.glioma.lgg.gbm.5,
          dataset=names(list_train_vali_Data))
 dev.off()
 
-####################### 就预后模型这一块还有什么要补充的吗 ########################################################
+####################### show model gene expression in p1 knockdown（刘宏伟 已经完成） ########################################################
 ### 欢迎补充
+library(ComplexHeatmap)
+load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/1.Prog.Model/101ml.res.Rdata")
+gene<- res[["ml.res"]][["RSF + survival-SVM"]][["var.names"]]
 
+primaryGBMcell_expr <- readRDS("~/bioinfo_mill/dataset/glioma/processed_data/primaryGBMcell_expr.rds")
+primaryGBMcell_meta <- readRDS("~/bioinfo_mill/dataset/glioma/processed_data/primaryGBMcell_meta.rds")
 
+p1_primaryGBMcell_meta<-primaryGBMcell_meta[primaryGBMcell_meta$Treatment %in% c("shRNA1_PIEZO1_72h",
+                                                                                 "shRNA2_PIEZO1_72h",
+                                                                                 "shRNA_control_72h"),]
+p1_primaryGBMcell_meta[p1_primaryGBMcell_meta=="shRNA_control_72h"]<-"Control"
+p1_primaryGBMcell_meta[p1_primaryGBMcell_meta=="shRNA2_PIEZO1_72h"]<-"shRNA2"
+p1_primaryGBMcell_meta[p1_primaryGBMcell_meta=="shRNA1_PIEZO1_72h"]<-"shRNA1"
 
+p1_primaryGBMcell_expr <- primaryGBMcell_expr[,rownames(p1_primaryGBMcell_meta)]
+p1_primaryGBMcell_expr <- p1_primaryGBMcell_expr[gene,]
+
+annotation_colors = list(Treatment=c("Control"="#374E55","shRNA1"="#DF8F44","shRNA2"="#00A1D5"),
+                         Cell_line=c("GBM001"="#B24745","GBM005"="#79AF97"))
+
+meta<-p1_primaryGBMcell_meta[p1_primaryGBMcell_meta$Cell_line=="GBM001",]
+data<-p1_primaryGBMcell_expr[,rownames(meta)]
+p1<-pheatmap(data,scale = "row", cluster_cols = F,cluster_rows  = T,
+         col=colorRampPalette(c(paletteer::paletteer_c("grDevices::Spectral", 30,direction = -1)))(30),name="Expression",
+         show_colnames = F,border=F,border_color ="white",
+         annotation_colors = annotation_colors,gaps_col = 9,
+         annotation_names_col = F,
+         annotation_col = dplyr::select(meta,c("Cell_line","Treatment")))
+
+meta<-p1_primaryGBMcell_meta[p1_primaryGBMcell_meta$Cell_line=="GBM005",]
+data<-p1_primaryGBMcell_expr[,rownames(meta)]
+p2<-pheatmap(data,scale = "row", cluster_cols = F,cluster_rows  = T,
+             col=colorRampPalette(c(paletteer::paletteer_c("grDevices::Spectral", 30,direction = -1)))(30),name="Expression",
+             show_colnames = F,border=F,border_color ="white",
+             annotation_colors = annotation_colors,gaps_col = 9,
+             annotation_col = dplyr::select(meta,c("Cell_line","Treatment")))
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/model_gene_p1_heatmap.pdf',
+          width = 5.5,height = 3.5,onefile = F)
+p1+p2
+dev.off()
 
 
 # 2.0 利用1.0中建立的optimal.model预后模型进行免疫浸润的分析（张益浩） -----------------------------------------------------
@@ -375,18 +618,33 @@ dev.off()
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/4.ICI_response")
 
 #######################利用ml建立预测免疫治疗反应的model (张炜 已经完成)############################################
+# dir.create('4.ICI_response')
 # source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ICI.response.model.R')
 
+#######################可视化建立的预测ICI反应的model (刘宏伟 已经完成)############################################
 load("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/4.ICI_response/ICIresponse.model.all.p1.Rdata")
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 
-#######################可视化建立的预测ICI反应的model (刘宏伟)############################################
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/4.ICI_response/auc_all.pdf',width = 6.5,height = 3.8,onefile = F)
+auc_vis_category_all(res.p1.ici,dataset = c("training","validation"),
+                     order= c("training","validation"))
+dev.off()
 
+methods = c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')
+plot_list<-list()
+for (i in methods) {
+  plot_list[[i]]<-roc_vis_category(res.p1.ici,model_name = i,dataset = c("training","validation"),
+                                   order= c("training","validation"),
+                                   anno_position=c(0.4,0.25))
+}
 
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/4.ICI_response/roc_all.pdf',width = 12,height = 9,onefile = F)
+aplot::plot_list(gglist=plot_list,ncol=3)
+dev.off()
 
 # 5.0 核心feature的选择（和预后相关）(计算张炜，已完成， 可视化刘宏伟)  -----------------------------------------------------
 
 #######################核心feature的选择（和预后相关) (张炜 已完成)############################################
-
 
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
 # dir.create('5.CoreFeature')
@@ -395,9 +653,16 @@ setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature")
 # 计算
 # source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ML.CoreFeature.R')
 
+#######################可视化 (刘宏伟 已经完成)################################################################
+
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
 load('/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature/feature.all.res.Rdata')
 
-#######################可视化 (刘宏伟)################################################################
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/5.CoreFeature/core_feature_intersect_tcga.pdf',
+          width = 15,height = 7.5,onefile = F)
+core_feature_select(res.feature.all)
+dev.off()
+
 
 # 6.0 在核心feature中选择某一个关键基因进行单基因分析的一整套(预后,差异,回归,龙哥的paper那一套)（刘宏伟） ----------------------------------------------------
 
