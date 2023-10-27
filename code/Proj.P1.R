@@ -77,10 +77,10 @@ for (i in c(1:11)) {
 
 library(patchwork)
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/sur_km.pdf',width = 15,height = 20,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/sur_km.pdf',width = 10,height = 28,onefile = F)
 survplot[[1]]+survplot[[2]]+survplot[[3]]+survplot[[4]]+survplot[[5]]+survplot[[6]]+
   survplot[[7]]+survplot[[8]]+survplot[[9]]+survplot[[10]]+survplot[[11]]+
-  plot_layout(ncol = 3)
+  plot_layout(ncol = 2)
 dev.off()
 
 ####################### 计算auc （张炜 刘宏伟 已经完成） ###################################################
@@ -453,26 +453,27 @@ dev.off()
 #                             GSE43289 =sur.matrix.GSE43289_Glioma,
 #                             GSE7696 = sur.matrix.GSE7696_Glioma
 # )
-load("~/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
 source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_RS_pre.prog.sig.R")
 # rs.glioma = cal_RS_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
 # rs.gbm = cal_RS_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data)
 # rs.lgg = cal_RS_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
 # rs.lgg.GBM = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM'),list_input_data = list_train_vali_Data)
-rs.glioma.lgg.gbm = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM','Glioma'),list_input_data = list_train_vali_Data)
+rs.glioma.lgg.gbm = cal_RS_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('LGG','GBM','Glioma'),list_input_data = list_train_vali_Data)
 save(rs.glioma.lgg.gbm,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/rs.glioma.lgg.gbm.Rdata")
 
 source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_cindex_pre.prog.sig.R")
 # cc.gbm = cal_cindex_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data)
 # cc.lgg = cal_cindex_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
 # cc.glioma= cal_cindex_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
-cc.glioma.lgg.gbm = cal_cindex_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data)
+cc.glioma.lgg.gbm = cal_cindex_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data)
 save(cc.glioma.lgg.gbm,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cc.glioma.lgg.gbm.Rdata")
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_auc_pre.prog.sig.R')
 
-auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1,
+auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(use_your_own_collected_sig = F,
+                                            type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1,
                                             auc_cal_method = 'KM')
 save(auc.glioma.lgg.gbm.1,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1_km.Rdata")
 
@@ -638,7 +639,7 @@ for (i in methods) {
                                    anno_position=c(0.4,0.25))
 }
 
-cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/4.ICI_response/roc_all.pdf',width = 12,height = 9,onefile = F)
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/4.ICI_response/roc_all.pdf',width = 12,height = 12,onefile = F)
 aplot::plot_list(gglist=plot_list,ncol=3)
 dev.off()
 
@@ -651,16 +652,16 @@ setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature")
 
 # 计算
-# source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ML.CoreFeature.R')
+# source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ ML.CoreFeature.R')
 
 #######################可视化 (刘宏伟 已经完成)################################################################
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
-load('/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature/feature.all.res.Rdata')
+load('/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature/feature.all.res.gbm.Rdata')
 
 cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/5.CoreFeature/core_feature_intersect_tcga.pdf',
           width = 15,height = 7.5,onefile = F)
-core_feature_select(res.feature.all)
+core_feature_select(res)
 dev.off()
 
 
@@ -669,7 +670,7 @@ dev.off()
 
 
 
-
+table(res$selected.fea)
 
 
 
