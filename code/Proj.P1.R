@@ -453,26 +453,26 @@ dev.off()
 #                             GSE43289 =sur.matrix.GSE43289_Glioma,
 #                             GSE7696 = sur.matrix.GSE7696_Glioma
 # )
-load("~/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
 
 source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_RS_pre.prog.sig.R")
 # rs.glioma = cal_RS_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
 # rs.gbm = cal_RS_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data)
 # rs.lgg = cal_RS_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
 # rs.lgg.GBM = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM'),list_input_data = list_train_vali_Data)
-rs.glioma.lgg.gbm = cal_RS_pre.prog.sig(type.sig = c('LGG','GBM','Glioma'),list_input_data = list_train_vali_Data)
+rs.glioma.lgg.gbm = cal_RS_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('LGG','GBM','Glioma'),list_input_data = list_train_vali_Data)
 save(rs.glioma.lgg.gbm,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/rs.glioma.lgg.gbm.Rdata")
 
 source("/export3/zhangw/Project_Cross/Project_Mime/Function/cal_cindex_pre.prog.sig.R")
 # cc.gbm = cal_cindex_pre.prog.sig(type.sig = 'GBM',list_input_data = list_train_vali_Data)
 # cc.lgg = cal_cindex_pre.prog.sig(type.sig = 'LGG',list_input_data = list_train_vali_Data)
 # cc.glioma= cal_cindex_pre.prog.sig(type.sig = 'Glioma',list_input_data = list_train_vali_Data)
-cc.glioma.lgg.gbm = cal_cindex_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data)
+cc.glioma.lgg.gbm = cal_cindex_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data)
 save(cc.glioma.lgg.gbm,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/cc.glioma.lgg.gbm.Rdata")
 
 source('/export3/zhangw/Project_Cross/Project_Mime/Function/cal_auc_pre.prog.sig.R')
 
-auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1,
+auc.glioma.lgg.gbm.1 = cal_auc_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('Glioma','LGG','GBM'),list_input_data = list_train_vali_Data,AUC_time = 1,
                                             auc_cal_method = 'KM')
 save(auc.glioma.lgg.gbm.1,file="/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/1.Prog.Model/auc.glioma.lgg.gbm.1_km.Rdata")
 
