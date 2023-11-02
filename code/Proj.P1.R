@@ -652,84 +652,108 @@ setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res")
 setwd("/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature")
 
 # 计算
-# source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ ML.CoreFeature.R')
+# source('/export3/zhangw/Project_Cross/Project_Mime/Proj/code/ML.CoreFeature.R')
 
 #######################可视化 (刘宏伟 已经完成)################################################################
 
 source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
-load('/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature/feature.all.res.gbm.Rdata')
+load('/export3/zhangw/Project_Cross/Project_Mime/Proj/res/5.CoreFeature/feature.all.res.Rdata')
 
 cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/5.CoreFeature/core_feature_intersect_tcga.pdf',
           width = 15,height = 7.5,onefile = F)
-core_feature_select(res)
+core_feature_select(res.feature.all)
 dev.off()
 
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/5.CoreFeature/core_feature_intersect_tcga_rank.pdf',
+          width = 4.8,height = 7,onefile = F)
+core_feature_rank(res.feature.all, top=50)
+dev.off()
 
 # 6.0 在核心feature中选择某一个关键基因进行单基因分析的一整套(预后,差异,回归,龙哥的paper那一套)（刘宏伟） ----------------------------------------------------
-
-
-
-
-table(res$selected.fea)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+gene<-"MCAM"
+## expression iin piezo1 knockdown cell line
+primaryGBMcell_expr <- readRDS("~/bioinfo_mill/dataset/glioma/processed_data/primaryGBMcell_expr.rds")
+primaryGBMcell_meta <- readRDS("~/bioinfo_mill/dataset/glioma/processed_data/primaryGBMcell_meta.rds")
+
+p1_primaryGBMcell_meta<-primaryGBMcell_meta[primaryGBMcell_meta$Treatment %in% c("shRNA1_PIEZO1_72h",
+                                                                                 "shRNA2_PIEZO1_72h",
+                                                                                 "shRNA_control_72h"),]
+p1_primaryGBMcell_meta[p1_primaryGBMcell_meta=="shRNA_control_72h"]<-"Control"
+p1_primaryGBMcell_meta[p1_primaryGBMcell_meta=="shRNA2_PIEZO1_72h"]<-"shRNA2"
+p1_primaryGBMcell_meta[p1_primaryGBMcell_meta=="shRNA1_PIEZO1_72h"]<-"shRNA1"
+
+p1_primaryGBMcell_expr <- primaryGBMcell_expr[,rownames(p1_primaryGBMcell_meta)]
+p1_primaryGBMcell_meta$gene<-t(p1_primaryGBMcell_expr[gene,])[,1]
+
+library(ggplot2)
+library(ggpubr)
+comparisons<-list(c("Control","shRNA1"),c("Control","shRNA2"))
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/5.CoreFeature/mcam_primarycell.pdf',
+          width = 3.5,height = 5,onefile = F)
+ggplot(p1_primaryGBMcell_meta, aes(Treatment, gene,fill =Treatment ))+
+  scale_fill_manual(values =c("#374E55","#DF8F44","#00A1D5"))+
+  geom_violin(alpha=0.25, size=1,color="NA",trim=FALSE)+
+  geom_boxplot( outlier.size = -1, color="black",lwd=0.2, alpha = 0.7) +
+  geom_point(shape = 21, size=2, # 点的性状和大小
+             position = position_jitterdodge(), # 让点散开
+             color="black", alpha = 0.6) +
+  facet_wrap(~Cell_line)+
+  theme_bw()+
+  labs(title = gene)+
+  ylab("Expression") +
+  xlab("") +
+  stat_compare_means(comparisons = comparisons,method = "t.test",hide.ns = F,label = "p.format")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=0.2),
+        axis.ticks = element_line(size=0.2, color="black"),
+        axis.ticks.length = unit(0.2, "cm"),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10),
+        legend.position = "none",
+        plot.title = element_text(hjust = 0.5))
+dev.off()
+
+## survival in cohorts
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
+load("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/data/Glioma.cohort.Rdata")
+
+survplot <- vector("list",11) 
+for (i in c(1:11)) {
+  print(survplot[[i]]<-core_feature_sur(gene, 
+                                        InputMatrix=list_train_vali_Data[[i]],
+                                        dataset = names(list_train_vali_Data)[i],
+                              #color=c("blue","green"),
+                              median.line = "hv",
+                              cutoff = 0.5,
+                              conf.int = T,
+                              xlab="Day",pval.coord=c(1000,0.9)))
+}
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/5.CoreFeature/gene_km.pdf',width = 10,height = 28,onefile = F)
+aplot::plot_list(gglist=survplot,ncol=2)
+dev.off()
+
+## correlation in cohorts
+source("/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/code/plot_function.R")
+
+dataset_col<-c("#3182BDFF","#E6550DFF","#31A354FF","#756BB1FF","#636363FF","#6BAED6FF","#FD8D3CFF","#74C476FF",
+                          "#9E9AC8FF","#969696FF","#9ECAE1FF","#FDAE6BFF","#A1D99BFF","#BCBDDCFF","#BDBDBDFF","#C6DBEFFF",
+                          "#FDD0A2FF","#C7E9C0FF","#DADAEBFF","#D9D9D9FF")
+
+corplot <- list()
+for (i in c(1:4,6:11)) {
+  print(corplot[[i]]<-cor_plot(list_train_vali_Data[[i]],
+                               dataset=names(list_train_vali_Data)[i],
+                                       color = dataset_col[i],
+                                       feature1="PIEZO1",
+                                       feature2="MCAM",
+                                       method="pearson"))
+}
+corplot<-corplot[-5]
+
+cairo_pdf('/export/bioinfo-team/home/liuhw/bioinfo_mill/Mime_proj/res/5.CoreFeature/gene_cor.pdf',width = 10,height = 25,onefile = F)
+aplot::plot_list(gglist=corplot,ncol=2)
+dev.off()
