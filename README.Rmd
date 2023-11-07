@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-# MIME
+# Mime
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -32,7 +32,7 @@ knitr::opts_chunk$set(
 
 ## Installation
 
-You can install the development version of MIME like so:
+You can install the development version of Mime like so:
 
 ``` r
 if (!requireNamespace("Mime", quietly = TRUE))
@@ -44,7 +44,7 @@ if (!requireNamespace("Mime", quietly = TRUE))
 This is a basic example which shows you how to solve a common problem:
 
 ```{r example}
-library(MIME)
+library(Mime)
 ## basic example code
 ```
 

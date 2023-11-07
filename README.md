@@ -1,19 +1,30 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# MIME
+# Mime
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of MIME is to …
+    The Mime package provides a user-friendly solution for constructing 
+    machine learning-based integration models from transcriptomic data. With the 
+    widespread use of high-throughput sequencing technologies, understanding biology 
+    and cancer heterogeneity has been revolutionized. Mime streamlines the process of 
+    developing predictive models with high accuracy, leveraging complex datasets to 
+    identify critical genes associated with disease progression, patient outcomes, 
+    and therapeutic response. It offers four main applications (i) establishing 
+    prognosis models using 10 machine learning algorithms, (ii) building binary 
+    response models with 7 machine learning algorithms, (iii) conducting core feature 
+    selection related to prognosis using 8 machine learning methods, and (iv) visualizing 
+    the performance of each model.
 
 ## Installation
 
-You can install the development version of MIME like so:
+You can install the development version of Mime like so:
 
 ``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+if (!requireNamespace("Mime", quietly = TRUE))
+  devtools::install_github("l-magnificence/Mime")
 ```
 
 ## Example
@@ -21,7 +32,7 @@ You can install the development version of MIME like so:
 This is a basic example which shows you how to solve a common problem:
 
 ``` r
-library(MIME)
+library(Mime)
 ## basic example code
 ```
 
