@@ -1,6 +1,6 @@
-Package: MIME
+Package: Mime
 Type: Package
-Title: Machine Learning Integration Models from Transcriptomic Data
+Title: Machine learning-based integration model with elegant performance
 Version: 0.0.0.9000
 Author@R: c(
     person("Wei", "Zhang", , "xxx", role = c("cre", "aut")),
