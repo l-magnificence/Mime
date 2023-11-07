@@ -10,7 +10,7 @@
 #' @examples
 TME_deconvolution_all <- function(inputmatrix.list, # A list contain the dataframes (colnames:ID,OS.time,OS,other genes), log2(x+1)， OS.time(day), OS(0/1)
                                   deconvolution_methods = "ALL", # Deconvolution Methods in IOBR::deconvo_tme
-                                  microarray_names = NULL # Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
+                                  microarray_names = "none" # Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
 ) {
   #### loading the packages ########
   if (T) {
