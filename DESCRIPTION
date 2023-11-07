@@ -1,0 +1,82 @@
+Package: MIME
+Type: Package
+Title: Machine Learning Integration Models from Transcriptomic Data
+Version: 0.0.0.9000
+Author@R: c(
+    person("Wei", "Zhang", , "xxx", role = c("cre", "aut")),
+    person("Hongwei", "Liu", , "xxx", role = "aut"),
+    person("Yihao", "Zhang", , "xxx", role = "aut"),
+  )
+Description: The Mime package provides a user-friendly solution for constructing 
+    machine learning-based integration models from transcriptomic data. With the 
+    widespread use of high-throughput sequencing technologies, understanding biology 
+    and cancer heterogeneity has been revolutionized. Mime streamlines the process of 
+    developing predictive models with high accuracy, leveraging complex datasets to 
+    identify critical genes associated with disease progression, patient outcomes, 
+    and therapeutic response. It offers four main applications (i) establishing 
+    prognosis models using 10 machine learning algorithms, (ii) building binary 
+    response models with 7 machine learning algorithms, (iii) conducting core feature 
+    selection related to prognosis using 8 machine learning methods, and (iv) visualizing 
+    the performance of each model. 
+License: MIT + file LICENSE
+URL: https://github.com/l-magnificence/Mime
+BugReports: https://github.com/l-magnificence/Mime/issues
+Depends: 
+    R (>= 4.1.0)
+Imports:
+    BART,
+    CoxBoost,
+    GSEABase,
+    GSVA,
+    IOBR,
+    ROCit,
+    cancerclass,
+    caret,
+    compareC,
+    data.table,
+    doParallel,
+    dplyr,
+    e1071,
+    future,
+    gbm,
+    ggbreak,
+    ggplot2,
+    ggsci,
+    glmnet,
+    gridExtra,
+    magrittr,
+    meta,
+    miscTools,
+    mixOmics,
+    pROC,
+    plsRcox,
+    randomForestSRC,
+    readr,
+    recipes,
+    sparrow,
+    stringr,
+    superpc,
+    survival,
+    survivalROC,
+    survivalsvm,
+    sva,
+    tibble,
+    tidyr,
+    tidyverse,
+    compositions,
+    pbapply,
+    reshape2,
+    UpSetR,
+    forestploter,
+    aplot,
+    e1071,
+    Ckmeans.1d.dp,
+    scales,
+    Hmisc,
+    Boruta
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.2.3
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
