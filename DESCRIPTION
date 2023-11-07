@@ -28,7 +28,6 @@ Imports:
     CoxBoost,
     GSEABase,
     GSVA,
-    IOBR,
     ROCit,
     cancerclass,
     caret,
@@ -74,6 +73,11 @@ Imports:
     scales,
     Hmisc,
     Boruta
+Suggests:
+    IOBR,
+    knitr,
+    rmarkdown,
+    testthat
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
