@@ -76,7 +76,6 @@ Suggests:
     rmarkdown,
     testthat
 biocViews:
-    CoxBoost, 
     GSEABase, 
     GSVA,
     cancerclass,
