@@ -72,7 +72,9 @@ Imports:
     Ckmeans.1d.dp,
     scales,
     Hmisc,
-    Boruta
+    Boruta,
+    mixtools,
+    ROCR
 Suggests:
     IOBR,
     knitr,
