@@ -6,7 +6,19 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-    The Mime package provides a user-friendly solution for constructing machine learning-based integration models from transcriptomic data. With the widespread use of high-throughput sequencing technologies, understanding biology and cancer heterogeneity has been revolutionized. Mime streamlines the process of developing predictive models with high accuracy, leveraging complex datasets to identify critical genes associated with disease progression, patient outcomes, and therapeutic response. It offers four main applications (i) establishing prognosis models using 10 machine learning algorithms, (ii) building binary response models with 7 machine learning algorithms, (iii) conducting core feature selection related to prognosis using 8 machine learning methods, and (iv) visualizing the performance of each model.
+The Mime package provides a user-friendly solution for constructing
+machine learning-based integration models from transcriptomic data.  
+With the widespread use of high-throughput sequencing technologies,
+understanding biology and cancer heterogeneity has been revolutionized.
+Mime streamlines the process of developing predictive models with high
+accuracy, leveraging complex datasets to identify critical genes
+associated with disease progression, patient outcomes, and therapeutic
+response.  
+It offers four main applications (i) establishing prognosis models using
+10 machine learning algorithms, (ii) building binary response models
+with 7 machine learning algorithms, (iii) conducting core feature
+selection related to prognosis using 8 machine learning methods, and
+(iv) visualizing the performance of each model.
 
 ## Installation
 
