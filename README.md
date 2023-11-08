@@ -42,6 +42,9 @@ for(i in 1:length(depens)){
 if (!requireNamespace("CoxBoost", quietly = TRUE))
   devtools::install_github("binderh/CoxBoost")
 
+if (!requireNamespace("fastAdaboost", quietly = TRUE))
+  devtools::install_github("souravc83/fastAdaboost")
+
 if (!requireNamespace("Mime", quietly = TRUE))
   devtools::install_github("l-magnificence/Mime")
   
