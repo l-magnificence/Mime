@@ -25,11 +25,7 @@ Depends:
     R (>= 4.1.0)
 Imports:
     BART,
-    CoxBoost,
-    GSEABase,
-    GSVA,
     ROCit,
-    cancerclass,
     caret,
     compareC,
     data.table,
@@ -46,19 +42,16 @@ Imports:
     magrittr,
     meta,
     miscTools,
-    mixOmics,
     pROC,
     plsRcox,
     randomForestSRC,
     readr,
     recipes,
-    sparrow,
     stringr,
     superpc,
     survival,
     survivalROC,
     survivalsvm,
-    sva,
     tibble,
     tidyr,
     tidyverse,
@@ -80,6 +73,14 @@ Suggests:
     knitr,
     rmarkdown,
     testthat
+biocViews:
+    CoxBoost, 
+    GSEABase, 
+    GSVA,
+    cancerclass,
+    mixOmics,
+    sparrow,
+    sva 
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
