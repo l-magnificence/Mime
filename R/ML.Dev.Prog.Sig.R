@@ -30,6 +30,19 @@ ML.Dev.Prog.Sig <- function(train_data, # cohort data used for training, the col
                             seed = NULL # 5201314
 ) {
 
+  if (is.null(alpha_for_Enet) == T){
+    alpha_for_Enet<-0.1 ## default 0.35
+  } else {
+    alpha_for_Enet<-alpha_for_Enet
+  }
+
+  
+  if (is.null(direction_for_stepcox) == T){
+    direction_for_stepcox<-'both' ## default 0.35
+  } else {
+    direction_for_stepcox<-direction_for_stepcox
+  }
+  
   #loading the packages
   if(T) {
     library(survival)
