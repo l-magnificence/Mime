@@ -29,6 +29,35 @@ ML.Dev.Prog.Sig <- function(train_data, # cohort data used for training, the col
                             nodesize = NULL, # reference 5-10
                             seed = NULL # 5201314
 ) {
+
+  #loading the packages
+  if(T) {
+    library(survival)
+    library(randomForestSRC)
+    library(glmnet)
+    library(plsRcox)
+    library(superpc)
+    library(gbm)
+    library(CoxBoost)
+    library(survivalsvm)
+    library(dplyr)
+    library(tibble)
+    library(BART)
+    library(miscTools)
+    library(compareC)
+    library(ggplot2)
+    library(ggsci)
+    library(tidyr)
+    library(ggbreak)
+    library(mixOmics)
+    library(data.table)
+
+
+
+    Sys.setenv(LANGUAGE = "en") #显示英文报错信息
+    options(stringsAsFactors = FALSE) #禁止chr转成factor
+  }
+
   rf_nodesize <- nodesize
   seed <- seed
 

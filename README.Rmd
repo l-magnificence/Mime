@@ -46,8 +46,7 @@ for(i in 1:length(depens)){
 
 if (!requireNamespace("Mime", quietly = TRUE))
   devtools::install_github("l-magnificence/Mime")
-  
-library(Mime)
+
 ```
 
 ## Example
