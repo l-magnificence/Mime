@@ -24,7 +24,7 @@ BugReports: https://github.com/l-magnificence/Mime/issues
 Depends: 
     R (>= 4.1.0)
 Imports:
-    Matrix
+    Matrix,
     BART,
     ROCit,
     caret,
