@@ -173,13 +173,13 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
     FeatSweep.wrap <- function(i, results, input) {
       # Wrapper to estimate generalization error across all hold-out folds, for a given number of top features
       svm.list <- lapply(results, function(x) {
-        tune(svm,
+        e1071::tune(svm,
           train.x = input[x$train.data.ids, 1 + x$feature.ids[1:i]],
           train.y = input[x$train.data.ids, 1],
           validation.x = input[x$test.data.ids, 1 + x$feature.ids[1:i]],
           validation.y = input[x$test.data.ids, 1],
           # Optimize SVM hyperparamters
-          ranges = tune(svm,
+          ranges = e1071::tune(svm,
             train.x = input[x$train.data.ids, 1 + x$feature.ids[1:i]],
             train.y = input[x$train.data.ids, 1],
             ranges  = list(gamma = 2^(-12:0), cost = 2^(-6:6))
