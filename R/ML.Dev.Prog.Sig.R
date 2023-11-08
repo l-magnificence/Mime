@@ -1907,15 +1907,22 @@ ML.Dev.Prog.Sig <- function(train_data, # cohort data used for training, the col
         )
         set.seed(seed)
         fit <- superpc.train(data = data, type = "survival", s0.perc = 0.5) # default
-        cv.fit <- superpc.cv(fit, data,
-          n.threshold = 20, # default
-          n.fold = 10,
-          n.components = 3,
-          min.features = 5,
-          max.features = nrow(data$x),
-          compute.fullcv = TRUE,
-          compute.preval = TRUE
-        )
+        repeat {
+      tryCatch({
+        cv.fit <- superpc.cv(fit, data, n.threshold = 20, #default
+                             n.fold = 10,
+                             n.components = 3,
+                             min.features = 5,
+                             max.features = nrow(data$x),
+                             compute.fullcv = TRUE,
+                             compute.preval =TRUE)
+        break
+      }, error = function(e) {
+        cat("Error:", conditionMessage(e), "\n")
+        cat("Retrying...\n")
+        Sys.sleep(1)
+      })
+    }
         rs <- lapply(val_dd_list2, function(w) {
           test <- list(x = t(w[, -c(1, 2)]), y = w$OS.time, censoring.status = w$OS, featurenames = colnames(w)[-c(1, 2)])
           ff <- superpc.predict(fit, data, test, threshold = cv.fit$thresholds[which.max(cv.fit[["scor"]][1, ])], n.components = 1)
