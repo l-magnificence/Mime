@@ -1,14 +1,18 @@
-#' Title
+#' C-index distribution plot of specific selected method
 #'
-#' @param object
-#' @param dataset_col
-#' @param model
-#' @param order
+#' Creates a distribution plot of C-index among different datasets for specific selected method
 #'
-#' @return
+#' @param object output of function ML.Dev.Prog.Sig whose mode can be "all",'single' or 'double'
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts
+#' @param model Model name to plot. If input object is from mode all, then define model as specific model name, while define model as "SOD" 
+#' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of cohorts to plot
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' cindex_dis_select(res, model="StepCox[both] + plsRcox", order= names(list_train_vali_Data))
+#'
 cindex_dis_select <- function(object, # output of ML.Dev.Prog.Sig mode = "all",'single' or 'double'
                               dataset_col = NULL, # color value for cohort
                               model, ## if input object is from mode=all, then define model as specific model name while SOD
