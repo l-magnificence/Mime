@@ -1,16 +1,30 @@
-#' Title
+#' Correlation between two genes
 #'
-#' @param obj
-#' @param dataset
-#' @param color
-#' @param feature1
-#' @param feature2
-#' @param method
+#' Creates a scatter plot between two genes
 #'
-#' @return
+#' @param obj A data frame of gene expression
+#' @param dataset Identical name of dataset
+#' @param color If NULL, color values are set to the default colors. Otherwise, you can specify one color value for line
+#' @param feature1 A specific gene
+#' @param feature2 Another specific gene
+#' @param method Methods for correlation analysis, it can be "pearson" or "spearman"
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' dataset_col<-c("#3182BDFF","#E6550DFF")
+#' corplot <- list()
+#' for (i in c(1:2)) {
+#'   print(corplot[[i]]<-cor_plot(list_train_vali_Data[[i]],
+#'                                dataset=names(list_train_vali_Data)[i],
+#'                                color = dataset_col[i],
+#'                                feature1="PSEN2",
+#'                                feature2="WNT5B",
+#'                                method="pearson"))
+#' }
+#' aplot::plot_list(gglist=corplot,ncol=2)
+#' 
 cor_plot <- function(obj, # expression data frame
                      dataset, # the cohort name of InputMatrix
                      color = NULL, # color value
