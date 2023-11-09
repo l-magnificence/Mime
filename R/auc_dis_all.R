@@ -1,19 +1,28 @@
-#' Title
+#' Area Under Curve distribution plot
 #'
-#' @param object
-#' @param color
-#' @param dataset_col
-#' @param dataset
-#' @param validate_set
-#' @param order
-#' @param year
-#' @param width
-#' @param height
+#' Creates a distribution plot of auc among different methods
 #'
-#' @return
+#' @param object output of function cal_AUC_ml_res whose mode is 'all'
+#' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color values for cindex, two color values for mean cindex and two color values for HR 
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets
+#' @param dataset A vector of names for all datasets   
+#' @param validate_set A vector of names for validate datasets  
+#' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot 
+#' @param year Specific year auc, can be 1, 3, and 5
+#' @param width Width of right plot. If NULL, width is set to the default width
+#' @param height Height of right plot. If NULL, height is set to the default height
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' auc_dis_all(all.auc.1y,
+#'          dataset = names(list_train_vali_Data),
+#'          validate_set=names(list_train_vali_Data)[-1],
+#'          order= names(list_train_vali_Data),
+#'          width = 0.2,
+#'          year=1)
+#'
 auc_dis_all <- function(object, # output of cal_AUC_ml_res mode = 'all'
                         color = NULL, # three color value for cindex, two color value for mean cindex and two color for HR
                         dataset_col = NULL, # color value for cohort
