@@ -1,17 +1,21 @@
-#' Title
+#' C-index distribution plot
 #'
-#' @param object
-#' @param color
-#' @param dataset_col
-#' @param validate_set
-#' @param order
-#' @param width
-#' @param height
+#' Creates a distribution plot of C-index among different methods
 #'
-#' @return
+#' @param object output of function ML.Dev.Prog.Sig whose mode is 'all'
+#' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color value for cindex and two color value for mean cindex 
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts
+#' @param validate_set A vector of names for validate datasets   
+#' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of cohorts to plot
+#' @param width Width of right plot. If NULL, width is set to the default width.
+#' @param height Height of right plot. If NULL, height is set to the default height.
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.2)
+#'
 cindex_dis_all <- function(object, # output of ML.Dev.Prog.Sig mode = 'all'
                            color = NULL, # three color value for cindex and two color value for mean cindex
                            dataset_col = NULL, # color value for cohort
