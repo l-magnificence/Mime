@@ -1,14 +1,19 @@
-#' Title
+#' Area Under Curve distribution plot when predicting response
 #'
-#' @param object
-#' @param dataset
-#' @param order
-#' @param method_col
+#' Creates a distribution plot of AUC among different methods when predicting response
 #'
-#' @return
+#' @param object Output of function ML.Dev.Pred.Category.Sig
+#' @param dataset A vector of names for all datasets in object
+#' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot 
+#' @param method_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for methods in object
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' auc_vis_category_all(res.ici,dataset = c("training","validation"),
+#'                      order= c("training","validation"))
+#' 
 auc_vis_category_all <- function(object, # output of ML.Dev.Pred.Category.Sig
                                  dataset, # input identical name of cohort in output of ML.Dev.Pred.Category.Sig
                                  order = NULL, # cohort order plot and input identical name of cohort in output of ML.Dev.Pred.Category.Sig
