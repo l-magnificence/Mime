@@ -3,12 +3,12 @@
 #' Creates a distribution plot of C-index among different methods
 #'
 #' @param object output of function ML.Dev.Prog.Sig whose mode is 'all'
-#' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color value for cindex and two color value for mean cindex 
+#' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color values for cindex and two color values for mean cindex 
 #' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts
 #' @param validate_set A vector of names for validate datasets   
 #' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of cohorts to plot
-#' @param width Width of right plot. If NULL, width is set to the default width.
-#' @param height Height of right plot. If NULL, height is set to the default height.
+#' @param width Width of right plot. If NULL, width is set to the default width
+#' @param height Height of right plot. If NULL, height is set to the default height
 #'
 #' @return a ggplot2 object
 #' @export
