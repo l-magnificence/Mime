@@ -1,13 +1,17 @@
-#' Title
+#' Rank the importance of genes
 #'
-#' @param object
-#' @param col
-#' @param top
+#' Creates a rank plot of genes filtered by different methods 
 #'
-#' @return
+#' @param object Output of function ML.Corefeature.Prog.Screen whose mode can be "all" or "all_without_SVM"
+#' @param col Color value for segment and point. If NULL, color values are set to the default colors
+#' @param top Number of genes to show
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' core_feature_rank(res.feature.all, top=10)
+#' 
 core_feature_rank <- function(object, # output of ML.Corefeature.Prog.Screen
                               col = NULL, # color value for segment and point
                               top = NULL # top number gene to show
