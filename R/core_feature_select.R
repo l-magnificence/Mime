@@ -1,14 +1,18 @@
-#' Title
+#' Select critical genes from an gene list
 #'
-#' @param object
-#' @param sets
-#' @param mb.ratio
-#' @param col
+#' Creates a upset plot of genes filtered by different methods 
 #'
-#' @return
+#' @param object Output of function ML.Corefeature.Prog.Screen whose mode can be "all" or "all_without_SVM"
+#' @param sets A vector of names for methods in object. If NULL, show all methods (default)
+#' @param mb.ratio Ratio between matrix plot and main bar plot
+#' @param col Color values for sets.bar.color,main.bar.color,matrix.color, shade.color. If NULL, color values are set to the default colors
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' core_feature_select(res.feature.all)
+#' 
 core_feature_select <- function(object, # output of ML.Corefeature.Prog.Screen, mode= all or all_without_SVM
                                 sets = NULL, # names of method
                                 mb.ratio = NULL, # Ratio between matrix plot and main bar plot
