@@ -4,7 +4,7 @@
 #'
 #' @param object Output of function ML.Corefeature.Prog.Screen whose mode can be "all" or "all_without_SVM"
 #' @param sets A vector of names for methods in object. If NULL, show all methods (default)
-#' @param mb.ratio Ratio between matrix plot and main bar plot
+#' @param mb.ratio Ratio between matrix plot and main bar plot. If NULL, ratio is set to c(0.6, 0.4) (default)
 #' @param col Color values for sets.bar.color,main.bar.color,matrix.color, shade.color. If NULL, color values are set to the default colors
 #'
 #' @return a ggplot2 object
