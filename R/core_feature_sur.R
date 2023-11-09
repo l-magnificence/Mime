@@ -1,19 +1,34 @@
-#' Title
+#' Survival curve of patients based on specific gene
 #'
-#' @param gene
-#' @param InputMatrix
-#' @param dataset
-#' @param cutoff
-#' @param conf.int
-#' @param median.line
-#' @param color
-#' @param xlab
-#' @param pval.coord
+#' Creates a survival curve of patients according to expression of specific gene among different datasets
 #'
-#' @return
+#' @param gene Specific gene name
+#' @param InputMatrix A matrix including OS, OS.time and gene expression
+#' @param dataset Identical name of dataset
+#' @param cutoff Cutoff for patient's group, which can be mean or quantile value
+#' @param conf.int If TRUE, plot with confidence intervals otherwise FALSE 
+#' @param median.line Drawing a horizontal/vertical line at median survival, it can be c("none", "hv", "h", "v"). If NULL, plot without line (default)
+#' @param color If NULL, color values are set to the default colors. Otherwise, you can specify two color values for high and low group
+#' @param xlab X axis title
+#' @param pval.coord The position of p value
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' survplot <- vector("list",2) 
+#' for (i in c(1:2)) {
+#'   print(survplot[[i]]<-core_feature_sur("PSEN2", 
+#'                                         InputMatrix=list_train_vali_Data[[i]],
+#'                                         dataset = names(list_train_vali_Data)[i],
+#'                                         #color=c("blue","green"),
+#'                                         median.line = "hv",
+#'                                         cutoff = 0.5,
+#'                                         conf.int = T,
+#'                                         xlab="Day",pval.coord=c(1000,0.9)))
+#' }
+#' aplot::plot_list(gglist=survplot,ncol=2)
+#' 
 core_feature_sur <- function(gene, # gene name
                              InputMatrix, # InputMatrix with os os.time and gene expression need contain gene
                              dataset, # the cohort name of InputMatrix
