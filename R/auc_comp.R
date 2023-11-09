@@ -1,15 +1,22 @@
-#' Title
+#' Compare the AUC of our model with previously published models
 #'
-#' @param object
-#' @param object2
-#' @param model_name
-#' @param dataset_col
-#' @param dataset
+#' Creates a distribution plot of AUC among different mdoels 
 #'
-#' @return
+#' @param object Output of function cal_auc_pre.prog.sig
+#' @param object2 Output of function cal_AUC_ml_res
+#' @param model_name Model name in object2 used to compare
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets
+#' @param dataset A vector of names for all datasets 
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' auc_comp(auc.glioma.lgg.gbm.1,
+#'          all.auc.1y,
+#'          model_name="StepCox[both] + plsRcox",
+#'          dataset=names(list_train_vali_Data))
+#' 
 auc_comp <- function(object, # output of cal_auc_pre.prog.sig
                      object2, # output of cal_AUC_ml_res
                      model_name, ## input specific model name
