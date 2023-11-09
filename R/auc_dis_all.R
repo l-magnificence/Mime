@@ -2,7 +2,7 @@
 #'
 #' Creates a distribution plot of auc among different methods
 #'
-#' @param object output of function cal_AUC_ml_res whose mode is 'all'
+#' @param object Output of function cal_AUC_ml_res whose mode is 'all'
 #' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color values for cindex, two color values for mean cindex and two color values for HR 
 #' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets
 #' @param dataset A vector of names for all datasets   
