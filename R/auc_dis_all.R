@@ -8,7 +8,7 @@
 #' @param dataset A vector of names for all datasets   
 #' @param validate_set A vector of names for validate datasets  
 #' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot 
-#' @param year Specific year auc, can be 1, 3, and 5
+#' @param year Specific year of auc, it can be 1, 3, and 5
 #' @param width Width of right plot. If NULL, width is set to the default width
 #' @param height Height of right plot. If NULL, height is set to the default height
 #'
