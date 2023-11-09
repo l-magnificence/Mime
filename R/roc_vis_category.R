@@ -1,16 +1,27 @@
-#' Title
+#' Receiver operating characteristic curves 
 #'
-#' @param object
-#' @param model_name
-#' @param dataset
-#' @param order
-#' @param dataset_col
-#' @param anno_position
+#' Creates a plot of ROC among different methods when predicting response
 #'
-#' @return
+#' @param object Output of function ML.Dev.Pred.Category.Sig
+#' @param model_name Model name in object to plot
+#' @param dataset Identical name of dataset in object to plot
+#' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot 
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts
+#' @param anno_position The position of AUC value
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' methods = c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')
+#' plot_list<-list()
+#' for (i in methods) {
+#'   plot_list[[i]]<-roc_vis_category(res.ici,model_name = i,dataset = c("training","validation"),
+#'                                    order= c("training","validation"),
+#'                                    anno_position=c(0.4,0.25))
+#' }
+#' aplot::plot_list(gglist=plot_list,ncol=3)
+#'
 roc_vis_category <- function(object, # output of ML.Dev.Pred.Category.Sig
                              model_name, # input one identical model name in output of ML.Dev.Pred.Category.Sig
                              dataset, # input identical name of cohort in output of ML.Dev.Pred.Category.Sig
