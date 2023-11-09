@@ -1,16 +1,24 @@
-#' Title
+#' Area Under Curve distribution plot of specific selected method
 #'
-#' @param object
-#' @param model_name
-#' @param dataset_col
-#' @param dataset
-#' @param order
-#' @param year
+#' Creates a distribution plot of AUC among different datasets for specific selected method
 #'
-#' @return
+#' @param object A list of output of function cal_AUC_ml_res whose mode can be "all", "single" or "double"
+#' @param model_name Model name to plot
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts
+#' @param dataset A vector of names for all datasets
+#' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot 
+#' @param year Specific year of auc in object list, such as c(1,3,...,9)
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
+#'             model_name="StepCox[both] + plsRcox",
+#'             dataset = names(list_train_vali_Data),
+#'             order= names(list_train_vali_Data),
+#'             year=c(1,3,5))
+#'
 auc_dis_select <- function(object, # a list of output of cal_AUC_ml_res  mode = "all",'single' or 'double'
                            model_name, # input specific model name
                            dataset_col = NULL, # color value for cohort
