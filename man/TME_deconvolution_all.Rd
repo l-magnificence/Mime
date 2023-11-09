@@ -7,7 +7,7 @@
 TME_deconvolution_all(
   inputmatrix.list,
   deconvolution_methods = "ALL",
-  microarray_names = NULL
+  microarray_names = "none"
 )
 }
 \arguments{
