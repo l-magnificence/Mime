@@ -2,7 +2,7 @@
 #'
 #' Creates a distribution plot of C-index among different datasets for specific selected method
 #'
-#' @param object output of function ML.Dev.Prog.Sig whose mode can be "all",'single' or 'double'
+#' @param object Output of function ML.Dev.Prog.Sig whose mode can be "all",'single' or 'double'
 #' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts
 #' @param model Model name to plot. If input object is from mode all, then define model as specific model name, while define model as "SOD" 
 #' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of cohorts to plot
