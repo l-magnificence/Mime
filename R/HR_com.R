@@ -1,23 +1,25 @@
-#' HR_com
-#' Compare the hazard ratio of our prognostic model with previously published models
-#' @param object Output of cal_auc_pre.prog.sig
-#' @param object2 Output of cal_AUC_ml_res
-#' @param color Three color value for HR
-#' @param model_name If input object2 is from mode=all, then define model_name as specific model name while define "SOD"
-#' @param dataset_col Color value for cohort
-#' @param dataset Input datasets name
+#' Compare the HR of our model with previously published models
+#'
+#' Creates a distribution plot of hazard ratio among different mdoels 
+#'
+#' @param object Output of function cal_auc_pre.prog.sig
+#' @param object2 Output of function cal_AUC_ml_res
+#' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color value for HR to plot
+#' @param model_name Model name in object2 used to compare. If object2 is from all mode in cal_AUC_ml_res, then define model_name as specific model name while define model_name as "SOD"
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets
+#' @param dataset A vector of names for all datasets 
 #' @param type Input "categorical" or "continuous" used by Univariate cox regression analysis, suggesting categorical which group by median
 #'
 #' @return a ggplot object
 #' @export
 #'
 #' @examples
-#' libraray(Mime)
 #' HR_com(rs.glioma.lgg.gbm,
 #'     res,
 #'     model_name="RSF + survival-SVM",
 #'     dataset=names(list_train_vali_Data),
 #'     type = "categorical")
+#'
 HR_com <- function(object, # output of cal_auc_pre.prog.sig
                    object2, # output of cal_AUC_ml_res
                    color = NULL, # three color value for HR
