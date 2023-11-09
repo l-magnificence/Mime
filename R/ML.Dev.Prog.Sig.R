@@ -1,6 +1,6 @@
-#' Title
-#'
-#' @param train_data
+#' ML.Dev.Prog.Sig
+#' A function, which can be used for developing a robust predictive model with elegant performance to predict the prognosis of the patients.
+#' @param train_data The training data with the ID, OS.time, and OS as the first three column names.
 #' @param list_train_vali_Data
 #' @param candidate_genes
 #' @param mode
