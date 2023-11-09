@@ -1,13 +1,18 @@
-#' Title
+#' Meta analysis of the result from univariate cox regression
 #'
-#' @param object
-#' @param dataset_col
-#' @param dataset
+#' Creates a summary table of meta analysis results 
 #'
-#' @return
+#' @param object Output of function cal_unicox_meta_ml_res
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets
+#' @param dataset A vector of names for all datasets 
+#'
+#' @return a summary table
 #' @export
 #'
 #' @examples
+#' meta_unicox_vis(metamodel,
+#'                 dataset = names(list_train_vali_Data))
+#' 
 meta_unicox_vis <- function(object, # output of cal_unicox_meta_ml_res
                             dataset_col = NULL, # color value for cohorts
                             dataset # input datasets name
