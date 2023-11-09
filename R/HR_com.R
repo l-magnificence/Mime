@@ -1,17 +1,23 @@
-#' Title
+#' HR_com
+#' Compare the hazard ratio of our prognostic model with previously published models
+#' @param object Output of cal_auc_pre.prog.sig
+#' @param object2 Output of cal_AUC_ml_res
+#' @param color Three color value for HR
+#' @param model_name If input object2 is from mode=all, then define model_name as specific model name while define "SOD"
+#' @param dataset_col Color value for cohort
+#' @param dataset Input datasets name
+#' @param type Input "categorical" or "continuous" used by Univariate cox regression analysis, suggesting categorical which group by median
 #'
-#' @param object
-#' @param object2
-#' @param color
-#' @param model_name
-#' @param dataset_col
-#' @param dataset
-#' @param type
-#'
-#' @return
+#' @return a ggplot object
 #' @export
 #'
 #' @examples
+#' libraray(Mime)
+#' HR_com(rs.glioma.lgg.gbm,
+#'     res,
+#'     model_name="RSF + survival-SVM",
+#'     dataset=names(list_train_vali_Data),
+#'     type = "categorical")
 HR_com <- function(object, # output of cal_auc_pre.prog.sig
                    object2, # output of cal_AUC_ml_res
                    color = NULL, # three color value for HR
