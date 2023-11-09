@@ -2,7 +2,7 @@
 #'
 #' Creates a distribution plot of C-index among different methods
 #'
-#' @param object output of function ML.Dev.Prog.Sig whose mode is 'all'
+#' @param object Output of function ML.Dev.Prog.Sig whose mode is 'all'
 #' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color values for cindex and two color values for mean cindex 
 #' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts
 #' @param validate_set A vector of names for validate datasets   
