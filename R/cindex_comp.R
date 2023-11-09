@@ -1,15 +1,22 @@
-#' Title
+#' Compare the c-index of our model with previously published models
 #'
-#' @param object
-#' @param object2
-#' @param model_name
-#' @param dataset_col
-#' @param dataset
+#' Creates a distribution plot of C-index among different mdoels 
 #'
-#' @return
+#' @param object Output of function cal_RS_pre.prog.sig
+#' @param object2 Output of function ML.Dev.Prog.Sig
+#' @param model_name Model name in object2 used to compare. If object2 is from all mode in ML.Dev.Prog.Sig, then define model_name as specific model name while define model_name as "SOD"
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets
+#' @param dataset A vector of names for all datasets 
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' cindex_comp(cc.glioma.lgg.gbm,
+#'             res,
+#'             model_name="StepCox[both] + plsRcox",
+#'             dataset=names(list_train_vali_Data))
+#' 
 cindex_comp <- function(object, # output of cal_RS_pre.prog.sig
                         object2, # output of ML.Dev.Prog.Sig
                         model_name, ## if input object2 is from mode=all, then define model as specific model name while SOD
