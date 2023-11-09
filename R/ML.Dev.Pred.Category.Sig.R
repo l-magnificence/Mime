@@ -1,13 +1,13 @@
-#' Title
+#' ML.Dev.Pred.Category.Sig
+#' A function can be used to develop the predictive model for dichotomous variables with seven machine learning algorithms.
+#' @param train_data The training data with the 'ID' and 'Var' as the first two columns. Starting in the third column are the variables used to construct the model. 'Var' is the target predictor variable for constructing the model. 'Var' contains only Y or N.
+#' @param list_train_vali_Data A list containing the training data and the other validation data. All the validation data have the same data form as the training data.
+#' @param candidate_genes The candidate variables used for constructing the predictive model.
+#' @param methods There are seven algorithms for developing the predictive model including 'nb', 'svmRadialWeights', 'rf', 'kknn', 'adaboost', 'LogitBoost', 'cancerclass'. 'nb':Naive Bayes algorithm. 'svmRadialWeights': Support Vector Machine (SVM). 'rf': Random Forest. 'kknn': K-nearest Neighbors.'adaboost': AdaBoost Classification Trees. 'LogitBoost':Boosted Logistic Regressions. 'cancerclass': Cancerclass. 
+#' @param seed The seed you can set as any positive number, for example, 5201314.
+#' @param cores_for_parallel The cores you can choose for parallel operation. The default is 12.The bigger the better if the configuration allows it.
 #'
-#' @param train_data
-#' @param list_train_vali_Data
-#' @param candidate_genes
-#' @param methods
-#' @param seed
-#' @param cores_for_parallel
-#'
-#' @return
+#' @return A list containing the predictive model, the AUC, the ROC, and the candidate variables, all of which are developed by each single algorithm.
 #' @export
 #'
 #' @examples
