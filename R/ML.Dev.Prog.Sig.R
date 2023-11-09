@@ -1,9 +1,9 @@
 #' ML.Dev.Prog.Sig
 #' A function, which can be used for developing a robust predictive model with elegant performance to predict the prognosis of the patients.
 #' @param train_data The training data with the ID, OS.time, and OS as the first three column names. Starting in the fourth column are the variables used to construct the model. The expression is scaled with log2(x+1). OS.time means the survival time(Day). OS means the survival status only containing 0 and 1 (1:Dead, 0:Alive). 
-#' @param list_train_vali_Data
-#' @param candidate_genes
-#' @param mode
+#' @param list_train_vali_Data A list containing the training data and some validation data. The validation data has the same format as the training data.
+#' @param candidate_genes  The character vector containing the variables you just want to input for developing the predictive model. These variables should be included in the colnames of the training data.
+#' @param mode Here we provide
 #' @param single_ml
 #' @param alpha_for_Enet
 #' @param direction_for_stepcox
