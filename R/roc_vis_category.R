@@ -1,4 +1,4 @@
-#' Receiver operating characteristic curves 
+#' Receiver operating characteristic curves when predicting response
 #'
 #' Creates a plot of ROC among different methods when predicting response
 #'
