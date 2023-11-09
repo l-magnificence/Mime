@@ -1,6 +1,6 @@
-#' Area Under Curve distribution plot of specific selected method
+#' Area Under Curve distribution plot of specific selected method when predicting prognosis
 #'
-#' Creates a distribution plot of AUC among different datasets for specific selected method
+#' Creates a distribution plot of AUC among different datasets for specific selected method when predicting prognosis
 #'
 #' @param object A list of output of function cal_AUC_ml_res whose mode can be "all", "single" or "double"
 #' @param model_name Model name to plot
