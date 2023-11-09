@@ -1,6 +1,6 @@
-#' Receiver operating characteristic curves 
+#' Receiver operating characteristic curves for predicting prognosis
 #'
-#' Creates a plot of ROC among different methods
+#' Creates a plot of ROC among different methods for predicting prognosis
 #'
 #' @param object Output of function cal_AUC_ml_res whose mode can be "all",'single' or 'double'
 #' @param model_name Model name to plot
