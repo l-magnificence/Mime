@@ -1,17 +1,26 @@
-#' Title
+#' Receiver operating characteristic curves 
 #'
-#' @param object
-#' @param model_name
-#' @param dataset
-#' @param order
-#' @param dataset_col
-#' @param anno_position
-#' @param year
+#' Creates a plot of ROC among different methods
 #'
-#' @return
+#' @param object Output of function cal_AUC_ml_res whose mode can be "all",'single' or 'double'
+#' @param model_name Model name to plot
+#' @param dataset A vector of names for all datasets 
+#' @param order If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot
+#' @param dataset_col If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets
+#' @param anno_position The position of AUC value
+#' @param year Specific year of auc, it can be 1, 3, and 5
+#'
+#' @return a ggplot2 object
 #' @export
 #'
 #' @examples
+#' roc_vis(all.auc.1y,
+#'      model_name = "StepCox[both] + plsRcox",
+#'      dataset = names(list_train_vali_Data),
+#'      order= names(list_train_vali_Data),
+#'      anno_position=c(0.65,0.55),
+#'      year=1)
+#'
 roc_vis <- function(object, # output of cal_AUC_ml_res  mode = "all",'single' or 'double'
                     model_name, # input one identical model name in output of cal_AUC_ml_res
                     dataset, # input identical name of cohort in output of cal_AUC_ml_res
