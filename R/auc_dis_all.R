@@ -1,6 +1,6 @@
-#' Area Under Curve distribution plot
+#' Area Under Curve distribution plot when predicting prognosis
 #'
-#' Creates a distribution plot of auc among different methods
+#' Creates a distribution plot of auc among different methods when predicting prognosis
 #'
 #' @param object Output of function cal_AUC_ml_res whose mode is 'all'
 #' @param color If NULL, color values are set to the default colors. Otherwise, you can specify three color values for cindex, two color values for mean cindex and two color values for HR 
