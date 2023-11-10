@@ -1,11 +1,11 @@
-#' Title
+#' Calculate AUC scores of the previous signarues in all data
 #'
 #' @param use_your_own_collected_sig
 #' @param collected_sig_table
 #' @param type.sig
 #' @param list_input_data
-#' @param AUC_time
-#' @param auc_cal_method
+#' @param AUC_time  c(1,2,3,4,5,6,7,······), for 1 year, 2 years, 3 years......We recommend using the shortest survival time among all queues.
+#' @param auc_cal_method 'KM', 'NNE'. The default is 'KM'.
 #'
 #' @return
 #' @export
