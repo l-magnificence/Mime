@@ -2,13 +2,18 @@
 % Please edit documentation in R/cal.auc.category.model.R
 \name{cal.auc.category.model}
 \alias{cal.auc.category.model}
-\title{Title}
+\title{Calculating the area under the curve after developing the category predictive model}
 \usage{
 cal.auc.category.model(res.by.ML.Dev.Pred.Category.Sig, cohort.for.cal)
 }
 \arguments{
-\item{cohort.for.cal}{}
+\item{res.by.ML.Dev.Pred.Category.Sig}{Output of function ML.Dev.Pred.Category.Sig}
+
+\item{cohort.for.cal}{A data frame with the 'ID' and 'Var' as the first two columns. Starting in the fourth column are the variables that contain variables of the model you want to build. The second column 'Var' only contains 'Y' or 'N'.}
+}
+\value{
+A data frame containing the AUC of each predictive model.
 }
 \description{
-Title
+Calculating the area under the curve after developing the category predictive model
 }

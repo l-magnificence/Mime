@@ -2,7 +2,7 @@
 % Please edit documentation in R/signature_score.R
 \name{signature_score}
 \alias{signature_score}
-\title{Title}
+\title{Calculating Signature Score using IOBR}
 \usage{
 signature_score(
   res.by.ML.Dev.Prog.Sig,
@@ -16,8 +16,28 @@ signature_score(
 )
 }
 \arguments{
-\item{cor.siganatue}{}
+\item{res.by.ML.Dev.Prog.Sig}{The output result of ML.Dev.Prog.Sig}
+
+\item{inputmatrix.list}{A gene expression dataframe after log2(x+1) scaled. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.}
+
+\item{signature}{signature using in IOBR, such as signature::signature_tme, signature::signature_metabolism ,signature::signature_tumor, signature::signature_collection}
+
+\item{estima_method}{estimating signature scores methods: "pca" "ssgsea" "zscore" "integration"}
+
+\item{diff.test}{Whether to stratify patients into high and low-risk groups based on the median of risk scores, and obtain the differential expression of signatures between the two groups.}
+
+\item{correlation.test}{Whether to perform correlation analysis on the specified signature scores.}
+
+\item{cor.method}{Method using in correlation.test, such as "pearson", "kendall", "spearman"}
+
+\item{cor.siganatue}{any signatures in the signature collection, such as CD_8_T_effector and DDR in IOBR::signature_collection}
+}
+\value{
+a list containing signature scores in each cohorts and ML methods
 }
 \description{
-Title
+Calculating Signature Score using IOBR
+}
+\examples{
+test.sig <- signature_score(res, list_train_vali_Data)
 }

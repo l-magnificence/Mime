@@ -2,13 +2,31 @@
 % Please edit documentation in R/auc_comp.R
 \name{auc_comp}
 \alias{auc_comp}
-\title{Title}
+\title{Compare the AUC of our model with previously published models}
 \usage{
 auc_comp(object, object2, model_name, dataset_col = NULL, dataset)
 }
 \arguments{
-\item{dataset}{}
+\item{object}{Output of function cal_auc_pre.prog.sig}
+
+\item{object2}{Output of function cal_AUC_ml_res}
+
+\item{model_name}{Model name in object2 used to compare}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets}
+
+\item{dataset}{A vector of names for all datasets}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a distribution plot of AUC among different mdoels
+}
+\examples{
+auc_comp(auc.glioma.lgg.gbm.1,
+         all.auc.1y,
+         model_name="StepCox[both] + plsRcox",
+         dataset=names(list_train_vali_Data))
+
 }

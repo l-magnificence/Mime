@@ -2,7 +2,7 @@
 % Please edit documentation in R/cal_unicox_ml_res.R
 \name{cal_unicox_ml_res}
 \alias{cal_unicox_ml_res}
-\title{Title}
+\title{Performing the Univariable Cox Regression Analysis for the Optimal Model}
 \usage{
 cal_unicox_ml_res(
   res.by.ML.Dev.Prog.Sig = NULL,
@@ -11,8 +11,15 @@ cal_unicox_ml_res(
 )
 }
 \arguments{
-\item{type}{}
+\item{res.by.ML.Dev.Prog.Sig}{The output result of ML.Dev.Prog.Sig}
+
+\item{optimal.model}{One model name you choose. For example, 'RSF'.}
+
+\item{type}{c('categorical') or c('continuous). The type for the univariable Cox Regression. The 'categorical' means that the patients are divided into two subgroups based on the median of the risk score. This means conducting  univariable Cox regression with the categorical subgroup. The 'continuous' means calculating the univariable Cox regression with the continuous risk score.}
+}
+\value{
+A list of the univariable Cox regression result of the model.
 }
 \description{
-Title
+Performing the Univariable Cox Regression Analysis for the Optimal Model
 }

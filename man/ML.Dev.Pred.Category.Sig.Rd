@@ -2,7 +2,8 @@
 % Please edit documentation in R/ML.Dev.Pred.Category.Sig.R
 \name{ML.Dev.Pred.Category.Sig}
 \alias{ML.Dev.Pred.Category.Sig}
-\title{Title}
+\title{Developing the optimal predictive model for the dichotomous variables with machine learning algorithms
+A function can be used to develop the predictive model for dichotomous variables with seven machine learning algorithms.}
 \usage{
 ML.Dev.Pred.Category.Sig(
   train_data,
@@ -14,8 +15,22 @@ ML.Dev.Pred.Category.Sig(
 )
 }
 \arguments{
-\item{cores_for_parallel}{}
+\item{train_data}{The training data with the 'ID' and 'Var' as the first two columns. Starting in the third column are the variables used to construct the model. 'Var' is the target predictor variable for constructing the model. 'Var' contains only Y or N.}
+
+\item{list_train_vali_Data}{A list containing the training data and the other validation data. All the validation data have the same data form as the training data.}
+
+\item{candidate_genes}{The candidate variables used for constructing the predictive model.}
+
+\item{methods}{There are seven algorithms for developing the predictive model including 'nb', 'svmRadialWeights', 'rf', 'kknn', 'adaboost', 'LogitBoost', 'cancerclass'. 'nb':Naive Bayes algorithm. 'svmRadialWeights': Support Vector Machine (SVM). 'rf': Random Forest. 'kknn': K-nearest Neighbors.'adaboost': AdaBoost Classification Trees. 'LogitBoost':Boosted Logistic Regressions. 'cancerclass': Cancerclass.}
+
+\item{seed}{The seed you can set as any positive number, for example, 5201314.}
+
+\item{cores_for_parallel}{The cores you can choose for parallel operation. The default is 12.The bigger the better if the configuration allows it.}
+}
+\value{
+A list containing the predictive model, the AUC, the ROC, and the candidate variables, all of which are developed by each single algorithm.
 }
 \description{
-Title
+Developing the optimal predictive model for the dichotomous variables with machine learning algorithms
+A function can be used to develop the predictive model for dichotomous variables with seven machine learning algorithms.
 }

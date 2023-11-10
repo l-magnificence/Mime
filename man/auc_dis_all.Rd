@@ -2,7 +2,7 @@
 % Please edit documentation in R/auc_dis_all.R
 \name{auc_dis_all}
 \alias{auc_dis_all}
-\title{Title}
+\title{Area Under Curve distribution plot when predicting prognosis}
 \usage{
 auc_dis_all(
   object,
@@ -17,8 +17,36 @@ auc_dis_all(
 )
 }
 \arguments{
-\item{height}{}
+\item{object}{Output of function cal_AUC_ml_res whose mode is 'all'}
+
+\item{color}{If NULL, color values are set to the default colors. Otherwise, you can specify three color values for cindex, two color values for mean cindex and two color values for HR}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets}
+
+\item{dataset}{A vector of names for all datasets}
+
+\item{validate_set}{A vector of names for validate datasets}
+
+\item{order}{If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot}
+
+\item{year}{Specific year of auc, it can be 1, 3, and 5}
+
+\item{width}{Width of right plot. If NULL, width is set to the default width}
+
+\item{height}{Height of right plot. If NULL, height is set to the default height}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a distribution plot of auc among different methods when predicting prognosis
+}
+\examples{
+auc_dis_all(all.auc.1y,
+         dataset = names(list_train_vali_Data),
+         validate_set=names(list_train_vali_Data)[-1],
+         order= names(list_train_vali_Data),
+         width = 0.2,
+         year=1)
+
 }

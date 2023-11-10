@@ -2,7 +2,8 @@
 % Please edit documentation in R/ML.Corefeature.Prog.Screen.R
 \name{ML.Corefeature.Prog.Screen}
 \alias{ML.Corefeature.Prog.Screen}
-\title{Title}
+\title{Screening out the core variables for the prognosis with the machine learning algorithms
+A function can be used for screening out the core features from the given candidate genes with eight machine learning algorithms.}
 \usage{
 ML.Corefeature.Prog.Screen(
   InputMatrix,
@@ -14,8 +15,22 @@ ML.Corefeature.Prog.Screen(
 )
 }
 \arguments{
-\item{nodesize}{}
+\item{InputMatrix}{A gene expression dataframe after log2(x+1) scaled. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.}
+
+\item{candidate_genes}{The input genes, that you want to screen out from, for identifying the core features.}
+
+\item{mode}{We provide three modes including 'all', 'single', and 'all_without_SVM'. The 'all' mode means using all eight methods for selecting. The 'single' mode means using only one method for running. Since SVM takes so much time, we're singling him out. The 'all_without_SVM' mode means the other seven methods used for selecting.}
+
+\item{seed}{The seed. You can set it as any number. For example, 5201314.}
+
+\item{single_ml}{The one method from the eight methods including "RSF", "Enet", "Boruta", "Xgboost", "SVM-REF", "Lasso", "CoxBoost', 'StepCox'.}
+
+\item{nodesize}{The node size parameter for the RSF method. The default is 5. You can try another positive integer. For example, 10,15,20, etc.}
+}
+\value{
+A data frame including the methods and the core genes screened by the corresponding algorithm.
 }
 \description{
-Title
+Screening out the core variables for the prognosis with the machine learning algorithms
+A function can be used for screening out the core features from the given candidate genes with eight machine learning algorithms.
 }

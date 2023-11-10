@@ -2,7 +2,7 @@
 % Please edit documentation in R/roc_vis.R
 \name{roc_vis}
 \alias{roc_vis}
-\title{Title}
+\title{Receiver operating characteristic curves when predicting prognosis}
 \usage{
 roc_vis(
   object,
@@ -15,8 +15,32 @@ roc_vis(
 )
 }
 \arguments{
-\item{year}{}
+\item{object}{Output of function cal_AUC_ml_res whose mode can be "all",'single' or 'double'}
+
+\item{model_name}{Model name to plot}
+
+\item{dataset}{A vector of names for all datasets}
+
+\item{order}{If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets}
+
+\item{anno_position}{The position of AUC value}
+
+\item{year}{Specific year of auc, it can be 1, 3, and 5}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a plot of ROC among different methods when predicting prognosis
+}
+\examples{
+roc_vis(all.auc.1y,
+     model_name = "StepCox[both] + plsRcox",
+     dataset = names(list_train_vali_Data),
+     order= names(list_train_vali_Data),
+     anno_position=c(0.65,0.55),
+     year=1)
+
 }

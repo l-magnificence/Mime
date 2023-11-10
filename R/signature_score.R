@@ -1,18 +1,20 @@
-#' Title
+#' Calculating Signature Score using IOBR
 #'
-#' @param res.by.ML.Dev.Prog.Sig
-#' @param inputmatrix.list
-#' @param signature
-#' @param estima_method
-#' @param diff.test
-#' @param correlation.test
-#' @param cor.method
-#' @param cor.siganatue
+#' @param res.by.ML.Dev.Prog.Sig The output result of ML.Dev.Prog.Sig
+#' @param inputmatrix.list A gene expression dataframe after log2(x+1) scaled. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.
+#' @param signature signature using in IOBR, such as signature::signature_tme, signature::signature_metabolism ,signature::signature_tumor, signature::signature_collection
+#' @param estima_method estimating signature scores methods: "pca" "ssgsea" "zscore" "integration"
+#' @param diff.test Whether to stratify patients into high and low-risk groups based on the median of risk scores, and obtain the differential expression of signatures between the two groups.
+#' @param correlation.test Whether to perform correlation analysis on the specified signature scores.
+#' @param cor.method Method using in correlation.test, such as "pearson", "kendall", "spearman"
+#' @param cor.siganatue any signatures in the signature collection, such as CD_8_T_effector and DDR in IOBR::signature_collection
 #'
-#' @return
+#' @return a list containing signature scores in each cohorts and ML methods
 #' @export
 #'
 #' @examples
+#' test.sig <- signature_score(res, list_train_vali_Data)
+
 signature_score <- function(res.by.ML.Dev.Prog.Sig, # ML.Dev.Prog.Sig, 函数计算结果
                             inputmatrix.list, # A list contain the dataframes (colnames:ID,OS.time,OS,other genes), log2(x+1)， OS.time(day), OS(0/1)
                             signature = IOBR::signature_collection, # signature_tme signature_metabolism signature_tumor signature_collection
@@ -20,7 +22,7 @@ signature_score <- function(res.by.ML.Dev.Prog.Sig, # ML.Dev.Prog.Sig, 函数计
                             diff.test = T, # Whether to stratify patients into high and low-risk groups based on the median of risk scores, and obtain the differential expression of signatures between the two groups.
                             correlation.test = T, # Whether to perform correlation analysis on the specified signature scores.
                             cor.method = "pearson", # "pearson" "kendall" "spearman"
-                            cor.siganatue = c("CD_8_T_effector", "DDR") # any signatures in the same signature collection, such as CD_8_T_effector and DDR in IOBR::signature_collection
+                            cor.siganatue = c("CD_8_T_effector", "DDR") # any signatures in the signature collection, such as CD_8_T_effector and DDR in IOBR::signature_collection
 ) {
   #### loading the packages ########
   if (T) {

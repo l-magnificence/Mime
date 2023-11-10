@@ -2,7 +2,7 @@
 % Please edit documentation in R/roc_vis_category.R
 \name{roc_vis_category}
 \alias{roc_vis_category}
-\title{Title}
+\title{Receiver operating characteristic curves when predicting response}
 \usage{
 roc_vis_category(
   object,
@@ -14,8 +14,32 @@ roc_vis_category(
 )
 }
 \arguments{
-\item{anno_position}{}
+\item{object}{Output of function ML.Dev.Pred.Category.Sig}
+
+\item{model_name}{Model name in object to plot}
+
+\item{dataset}{Identical name of dataset in object to plot}
+
+\item{order}{If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts}
+
+\item{anno_position}{The position of AUC value}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a plot of ROC among different methods when predicting response
+}
+\examples{
+methods = c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')
+plot_list<-list()
+for (i in methods) {
+  plot_list[[i]]<-roc_vis_category(res.ici,model_name = i,dataset = c("training","validation"),
+                                   order= c("training","validation"),
+                                   anno_position=c(0.4,0.25))
+}
+aplot::plot_list(gglist=plot_list,ncol=3)
+
 }

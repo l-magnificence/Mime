@@ -2,7 +2,7 @@
 % Please edit documentation in R/cal_auc_previous_immunotherapy_sig.R
 \name{cal_auc_previous_sig}
 \alias{cal_auc_previous_sig}
-\title{Title}
+\title{Calculating the Area Under the Curve of the previous signatures for immunotherapy response.}
 \usage{
 cal_auc_previous_sig(
   list_train_vali_Data,
@@ -12,8 +12,17 @@ cal_auc_previous_sig(
 )
 }
 \arguments{
-\item{cores_for_parallel}{}
+\item{list_train_vali_Data}{A list containing the training data and the other validation data. All the validation data have the same data form as the training data.}
+
+\item{seed}{The seed you can set as any positive integer, for example, 5201314}
+
+\item{train_data}{The training data with the 'ID' and 'Var' as the first two columns. Starting in the third column are the variables used to construct the model. 'Var' is the target predictor variable for constructing the model. 'Var' contains only Y or N.}
+
+\item{cores_for_parallel}{The cores you can choose for parallel operation. The default is 12. The bigger the better if the configuration allows it.}
+}
+\value{
+A list of the AUC results of each signature we collected in each data.
 }
 \description{
-Title
+Calculating the Area Under the Curve of the previous signatures for immunotherapy response.
 }

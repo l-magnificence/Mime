@@ -2,7 +2,7 @@
 % Please edit documentation in R/cindex_dis_all.R
 \name{cindex_dis_all}
 \alias{cindex_dis_all}
-\title{Title}
+\title{C-index distribution plot}
 \usage{
 cindex_dis_all(
   object,
@@ -15,8 +15,27 @@ cindex_dis_all(
 )
 }
 \arguments{
-\item{height}{}
+\item{object}{Output of function ML.Dev.Prog.Sig whose mode is 'all'}
+
+\item{color}{If NULL, color values are set to the default colors. Otherwise, you can specify three color values for cindex and two color values for mean cindex}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts}
+
+\item{validate_set}{A vector of names for validate datasets}
+
+\item{order}{If NULL, order is set to the default order. Otherwise, you can specify the order of cohorts to plot}
+
+\item{width}{Width of right plot. If NULL, width is set to the default width}
+
+\item{height}{Height of right plot. If NULL, height is set to the default height}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a distribution plot of C-index among different methods
+}
+\examples{
+cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.2)
+
 }

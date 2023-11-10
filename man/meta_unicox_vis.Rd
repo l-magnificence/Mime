@@ -2,13 +2,25 @@
 % Please edit documentation in R/meta_unicox_vis.R
 \name{meta_unicox_vis}
 \alias{meta_unicox_vis}
-\title{Title}
+\title{Meta analysis of the result from univariate cox regression}
 \usage{
 meta_unicox_vis(object, dataset_col = NULL, dataset)
 }
 \arguments{
-\item{dataset}{}
+\item{object}{Output of function cal_unicox_meta_ml_res}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets}
+
+\item{dataset}{A vector of names for all datasets}
+}
+\value{
+a summary table
 }
 \description{
-Title
+Creates a summary table of meta analysis results
+}
+\examples{
+meta_unicox_vis(metamodel,
+                dataset = names(list_train_vali_Data))
+
 }

@@ -2,13 +2,26 @@
 % Please edit documentation in R/cindex_dis_select.R
 \name{cindex_dis_select}
 \alias{cindex_dis_select}
-\title{Title}
+\title{C-index distribution plot of specific selected method}
 \usage{
 cindex_dis_select(object, dataset_col = NULL, model, order = NULL)
 }
 \arguments{
-\item{order}{}
+\item{object}{Output of function ML.Dev.Prog.Sig whose mode can be "all",'single' or 'double'}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts}
+
+\item{model}{Model name to plot. If input object is from mode all, then define model as specific model name, while define model as "SOD"}
+
+\item{order}{If NULL, order is set to the default order. Otherwise, you can specify the order of cohorts to plot}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a distribution plot of C-index among different datasets for specific selected method
+}
+\examples{
+cindex_dis_select(res, model="StepCox[both] + plsRcox", order= names(list_train_vali_Data))
+
 }

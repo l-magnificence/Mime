@@ -2,13 +2,16 @@
 % Please edit documentation in R/cal_unicox_meta_ml_res.R
 \name{cal_unicox_meta_ml_res}
 \alias{cal_unicox_meta_ml_res}
-\title{Title}
+\title{Perform the meta-analysis based on univariable Cox regression result.}
 \usage{
 cal_unicox_meta_ml_res(input)
 }
 \arguments{
-\item{input}{}
+\item{input}{A data frame containing the univariable Cox regression result. The row names are the cohort names. The column names are "HR", "pvalue", "LCI", and "HCI".  LCI and HCI are matrices containing, respectively, the lower and higher bounds of the 95% confidence interval of each correlation coefficient.}
+}
+\value{
+The result of the meta-analysis.
 }
 \description{
-Title
+Perform the meta-analysis based on univariable Cox regression result.
 }

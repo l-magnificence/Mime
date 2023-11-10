@@ -2,13 +2,26 @@
 % Please edit documentation in R/core_feature_select.R
 \name{core_feature_select}
 \alias{core_feature_select}
-\title{Title}
+\title{Select critical genes from an gene list}
 \usage{
 core_feature_select(object, sets = NULL, mb.ratio = NULL, col = NULL)
 }
 \arguments{
-\item{col}{}
+\item{object}{Output of function ML.Corefeature.Prog.Screen whose mode can be "all" or "all_without_SVM"}
+
+\item{sets}{A vector of names for methods in object. If NULL, show all methods (default)}
+
+\item{mb.ratio}{Ratio between matrix plot and main bar plot. If NULL, ratio is set to c(0.6, 0.4) (default)}
+
+\item{col}{Color values for sets.bar.color,main.bar.color,matrix.color, shade.color. If NULL, color values are set to the default colors}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a upset plot of genes filtered by different methods
+}
+\examples{
+core_feature_select(res.feature.all)
+
 }

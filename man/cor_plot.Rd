@@ -2,13 +2,40 @@
 % Please edit documentation in R/cor_plot.R
 \name{cor_plot}
 \alias{cor_plot}
-\title{Title}
+\title{Correlation between two genes}
 \usage{
 cor_plot(obj, dataset, color = NULL, feature1, feature2, method)
 }
 \arguments{
-\item{method}{}
+\item{obj}{A data frame of gene expression}
+
+\item{dataset}{Identical name of dataset}
+
+\item{color}{If NULL, color values are set to the default colors. Otherwise, you can specify one color value for line}
+
+\item{feature1}{A specific gene}
+
+\item{feature2}{Another specific gene}
+
+\item{method}{Methods for correlation analysis, it can be "pearson" or "spearman"}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a scatter plot between two genes
+}
+\examples{
+dataset_col<-c("#3182BDFF","#E6550DFF")
+corplot <- list()
+for (i in c(1:2)) {
+  print(corplot[[i]]<-cor_plot(list_train_vali_Data[[i]],
+                               dataset=names(list_train_vali_Data)[i],
+                               color = dataset_col[i],
+                               feature1="PSEN2",
+                               feature2="WNT5B",
+                               method="pearson"))
+}
+aplot::plot_list(gglist=corplot,ncol=2)
+
 }

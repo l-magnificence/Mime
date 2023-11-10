@@ -2,7 +2,7 @@
 % Please edit documentation in R/auc_dis_select.R
 \name{auc_dis_select}
 \alias{auc_dis_select}
-\title{Title}
+\title{Area Under Curve distribution plot of specific selected method when predicting prognosis}
 \usage{
 auc_dis_select(
   object,
@@ -14,8 +14,29 @@ auc_dis_select(
 )
 }
 \arguments{
-\item{year}{}
+\item{object}{A list of output of function cal_AUC_ml_res whose mode can be "all", "single" or "double"}
+
+\item{model_name}{Model name to plot}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for cohorts}
+
+\item{dataset}{A vector of names for all datasets}
+
+\item{order}{If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot}
+
+\item{year}{Specific year of auc in object list, such as c(1,3,...,9)}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a distribution plot of AUC among different datasets for specific selected method when predicting prognosis
+}
+\examples{
+auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
+            model_name="StepCox[both] + plsRcox",
+            dataset = names(list_train_vali_Data),
+            order= names(list_train_vali_Data),
+            year=c(1,3,5))
+
 }

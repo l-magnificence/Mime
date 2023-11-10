@@ -2,13 +2,24 @@
 % Please edit documentation in R/core_feature_rank.R
 \name{core_feature_rank}
 \alias{core_feature_rank}
-\title{Title}
+\title{Rank the importance of genes}
 \usage{
 core_feature_rank(object, col = NULL, top = NULL)
 }
 \arguments{
-\item{top}{}
+\item{object}{Output of function ML.Corefeature.Prog.Screen whose mode can be "all" or "all_without_SVM"}
+
+\item{col}{Color value for segment and point. If NULL, color values are set to the default colors}
+
+\item{top}{Number of genes to show}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a rank plot of genes filtered by different methods
+}
+\examples{
+core_feature_rank(res.feature.all, top=10)
+
 }

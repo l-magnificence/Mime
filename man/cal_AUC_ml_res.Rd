@@ -2,7 +2,7 @@
 % Please edit documentation in R/cal_AUC_ml_res.R
 \name{cal_AUC_ml_res}
 \alias{cal_AUC_ml_res}
-\title{Calculate AUC scores of Machine Learning Models in training data}
+\title{Calculate AUC scores of Machine Learning Models in all data}
 \usage{
 cal_AUC_ml_res(
   res.by.ML.Dev.Prog.Sig = NULL,
@@ -45,7 +45,7 @@ cal_AUC_ml_res(
 AUC Calculation Result
 }
 \description{
-Calculate AUC scores of Machine Learning Models in training data
+Calculate AUC scores of Machine Learning Models in all data
 }
 \examples{
 all.auc.1y <- cal_AUC_ml_res(

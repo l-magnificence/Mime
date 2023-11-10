@@ -2,7 +2,7 @@
 % Please edit documentation in R/HR_com.R
 \name{HR_com}
 \alias{HR_com}
-\title{Title}
+\title{Compare the HR of our model with previously published models}
 \usage{
 HR_com(
   object,
@@ -15,8 +15,31 @@ HR_com(
 )
 }
 \arguments{
-\item{type}{}
+\item{object}{Output of function cal_auc_pre.prog.sig}
+
+\item{object2}{Output of function cal_AUC_ml_res}
+
+\item{color}{If NULL, color values are set to the default colors. Otherwise, you can specify three color value for HR to plot}
+
+\item{model_name}{Model name in object2 used to compare. If object2 is from all mode in cal_AUC_ml_res, then define model_name as specific model name while define model_name as "SOD"}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets}
+
+\item{dataset}{A vector of names for all datasets}
+
+\item{type}{Input "categorical" or "continuous" used by Univariate cox regression analysis, suggesting categorical which group by median}
+}
+\value{
+a ggplot object
 }
 \description{
-Title
+Creates a distribution plot of hazard ratio among different mdoels
+}
+\examples{
+HR_com(rs.glioma.lgg.gbm,
+    res,
+    model_name="RSF + survival-SVM",
+    dataset=names(list_train_vali_Data),
+    type = "categorical")
+
 }

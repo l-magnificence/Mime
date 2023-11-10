@@ -11,8 +11,18 @@ TME_deconvolution_all(
 )
 }
 \arguments{
-\item{microarray_names}{}
+\item{inputmatrix.list}{A gene expression dataframe after log2(x+1) scaled. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.}
+
+\item{deconvolution_methods}{Deconvolution Methods in IOBR::deconvo_tme}
+
+\item{microarray_names}{Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".}
+}
+\value{
+a list containing deconvolution scores in each cohorts and ML methods
 }
 \description{
 Title
+}
+\examples{
+test.devo <- TME_deconvolution_all(list_train_vali_Data)
 }

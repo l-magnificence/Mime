@@ -2,13 +2,31 @@
 % Please edit documentation in R/cindex_comp.R
 \name{cindex_comp}
 \alias{cindex_comp}
-\title{Title}
+\title{Compare the c-index of our model with previously published models}
 \usage{
 cindex_comp(object, object2, model_name, dataset_col = NULL, dataset)
 }
 \arguments{
-\item{dataset}{}
+\item{object}{Output of function cal_RS_pre.prog.sig}
+
+\item{object2}{Output of function ML.Dev.Prog.Sig}
+
+\item{model_name}{Model name in object2 used to compare. If object2 is from all mode in ML.Dev.Prog.Sig, then define model_name as specific model name while define model_name as "SOD"}
+
+\item{dataset_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for datasets}
+
+\item{dataset}{A vector of names for all datasets}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a distribution plot of C-index among different mdoels
+}
+\examples{
+cindex_comp(cc.glioma.lgg.gbm,
+            res,
+            model_name="StepCox[both] + plsRcox",
+            dataset=names(list_train_vali_Data))
+
 }

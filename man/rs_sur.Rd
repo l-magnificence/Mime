@@ -2,7 +2,7 @@
 % Please edit documentation in R/rs_sur.R
 \name{rs_sur}
 \alias{rs_sur}
-\title{Title}
+\title{Survival curve of patients}
 \usage{
 rs_sur(
   object,
@@ -17,8 +17,39 @@ rs_sur(
 )
 }
 \arguments{
-\item{pval.coord}{}
+\item{object}{Output of function ML.Dev.Prog.Sig whose mode can be "all","single" or "double"}
+
+\item{model_name}{Model name in object to plot}
+
+\item{dataset}{Identical name of dataset in object to plot}
+
+\item{cutoff}{Cutoff for patient's group, which can be mean or quantile value}
+
+\item{conf.int}{If TRUE, plot with confidence intervals otherwise FALSE}
+
+\item{median.line}{Drawing a horizontal/vertical line at median survival, it can be c("none", "hv", "h", "v"). If NULL, plot without line (default).}
+
+\item{color}{If NULL, color values are set to the default colors. Otherwise, you can specify two color values for high and low group}
+
+\item{xlab}{X axis title}
+
+\item{pval.coord}{The position of p value}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a survival curve of patients according to risk score calculated by specific selected method among different datasets
+}
+\examples{
+survplot <- vector("list",2) 
+for (i in c(1:2)) {
+  print(survplot[[i]]<-rs_sur(res, model_name = "StepCox[both] + plsRcox",dataset = names(list_train_vali_Data)[i],
+                              #color=c("blue","green"),
+                              median.line = "hv",
+                              cutoff = 0.5,
+                              conf.int = T,
+                              xlab="Day",pval.coord=c(1000,0.9)))}
+aplot::plot_list(gglist=survplot,ncol=2)
+
 }

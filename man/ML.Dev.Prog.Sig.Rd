@@ -2,7 +2,8 @@
 % Please edit documentation in R/ML.Dev.Prog.Sig.R
 \name{ML.Dev.Prog.Sig}
 \alias{ML.Dev.Prog.Sig}
-\title{Title}
+\title{Constructing the optimal predictive model for the prognosis with machine learning algorithms
+A function, which can be used for developing a robust predictive model with elegant performance to predict the prognosis of the patients.}
 \usage{
 ML.Dev.Prog.Sig(
   train_data,
@@ -19,8 +20,32 @@ ML.Dev.Prog.Sig(
 )
 }
 \arguments{
-\item{seed}{}
+\item{train_data}{The training data with the ID, OS.time, and OS as the first three column names. Starting in the fourth column are the variables used to construct the model. The expression is scaled with log2(x+1). OS.time means the survival time(Day). OS means the survival status only containing 0 and 1 (1:Dead, 0:Alive).}
+
+\item{list_train_vali_Data}{A list containing the training data and some validation data. The validation data has the same format as the training data.}
+
+\item{candidate_genes}{The character vector containing the variables you just want to input for developing the predictive model. These variables should be included in the colnames of the training data.}
+
+\item{mode}{Here we provide three modes including 'all', 'single', and 'double'. 'all' means using all ten algorithms and the combinations. 'single' means using only one of the ten algorithms. 'double' means using the combination with two algorithms.}
+
+\item{single_ml}{One of the ten algorithms including "RSF", "Enet", "StepCox", "CoxBoost", "plsRcox", "superpc", "GBM", "survivalsvm", "Ridge", "Lasso".}
+
+\item{alpha_for_Enet}{The parameter for the "Enet".  One of the values from 0.1 to 0.9. c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9). There are some conditions you could not set this parameter. [1] The mode is 'all'. [2] The mode is 'single' or 'double', but the 'Enet' is not included in the algorithms you choose.}
+
+\item{direction_for_stepcox}{The parameter for the StepCox. One  from "both", "backward", "forward". There are some conditions you could not set this parameter. [1] The mode is 'all'. [2] The mode is 'single' or 'double', but the 'StepCox' is not included in the algorithms you choose.}
+
+\item{double_ml1}{The first algorithm of the algorithm combination. If you set the mode as the 'double', you should set this from the c('RSF', "StepCox","CoxBoost","Lasso"). Here we only provide four options.}
+
+\item{double_ml2}{The second algorithm of the algorithm combination. If you set the mode as the 'double', you should set this from the c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso"). Here we only provide ten options. The specific combinations of the algorithms are provided in the documentation.}
+
+\item{nodesize}{The parameter for 'RSF'. The default is 5. You can try the positive number from 5 to 10.}
+
+\item{seed}{The seed you can set as any positive integer, for example, 5201314.}
+}
+\value{
+A list containing the developed predictive model, the risk score of the model in each data, the C index of the model in each data, and the variables used to construct the model.
 }
 \description{
-Title
+Constructing the optimal predictive model for the prognosis with machine learning algorithms
+A function, which can be used for developing a robust predictive model with elegant performance to predict the prognosis of the patients.
 }

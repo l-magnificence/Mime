@@ -2,7 +2,7 @@
 % Please edit documentation in R/core_feature_sur.R
 \name{core_feature_sur}
 \alias{core_feature_sur}
-\title{Title}
+\title{Survival curve of patients based on specific gene}
 \usage{
 core_feature_sur(
   gene,
@@ -17,8 +17,42 @@ core_feature_sur(
 )
 }
 \arguments{
-\item{pval.coord}{}
+\item{gene}{Specific gene name}
+
+\item{InputMatrix}{A matrix including OS, OS.time and gene expression}
+
+\item{dataset}{Identical name of dataset}
+
+\item{cutoff}{Cutoff for patient's group, which can be mean or quantile value}
+
+\item{conf.int}{If TRUE, plot with confidence intervals otherwise FALSE}
+
+\item{median.line}{Drawing a horizontal/vertical line at median survival, it can be c("none", "hv", "h", "v"). If NULL, plot without line (default)}
+
+\item{color}{If NULL, color values are set to the default colors. Otherwise, you can specify two color values for high and low group}
+
+\item{xlab}{X axis title}
+
+\item{pval.coord}{The position of p value}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a survival curve of patients according to expression of specific gene among different datasets
+}
+\examples{
+survplot <- vector("list",2) 
+for (i in c(1:2)) {
+  print(survplot[[i]]<-core_feature_sur("PSEN2", 
+                                        InputMatrix=list_train_vali_Data[[i]],
+                                        dataset = names(list_train_vali_Data)[i],
+                                        #color=c("blue","green"),
+                                        median.line = "hv",
+                                        cutoff = 0.5,
+                                        conf.int = T,
+                                        xlab="Day",pval.coord=c(1000,0.9)))
+}
+aplot::plot_list(gglist=survplot,ncol=2)
+
 }

@@ -2,13 +2,27 @@
 % Please edit documentation in R/auc_vis_category_all.R
 \name{auc_vis_category_all}
 \alias{auc_vis_category_all}
-\title{Title}
+\title{Area Under Curve distribution plot when predicting response}
 \usage{
 auc_vis_category_all(object, dataset, order = NULL, method_col = NULL)
 }
 \arguments{
-\item{method_col}{}
+\item{object}{Output of function ML.Dev.Pred.Category.Sig}
+
+\item{dataset}{A vector of names for all datasets in object}
+
+\item{order}{If NULL, order is set to the default order. Otherwise, you can specify the order of datasets to plot}
+
+\item{method_col}{If NULL, color values are set to the default colors. Otherwise, you can specify consistent number of color value for methods in object}
+}
+\value{
+a ggplot2 object
 }
 \description{
-Title
+Creates a distribution plot of AUC among different methods when predicting response
+}
+\examples{
+auc_vis_category_all(res.ici,dataset = c("training","validation"),
+                     order= c("training","validation"))
+
 }
