@@ -3,7 +3,7 @@
 #' @param res.by.ML.Dev.Pred.Category.Sig  Output of function ML.Dev.Pred.Category.Sig
 #' @param cohort.for.cal A data frame with the 'ID' and 'Var' as the first two columns. Starting in the fourth column are the variables that contain variables of the model you want to build. The second column 'Var' only contains 'Y' or 'N'.
 #'
-#' @return A list containing the AUC of each model for each predictive model.
+#' @return A data frame containing the AUC of each model for each predictive model.
 #' @export
 #'
 #' @examples
