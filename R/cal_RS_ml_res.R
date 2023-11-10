@@ -1,13 +1,13 @@
-#' Title
+#' Calculate risk scores of Machine Learning Models in all data
 #'
-#' @param res.by.ML.Dev.Prog.Sig
-#' @param train_data
-#' @param inputmatrix.list
-#' @param mode
-#' @param single_ml
-#' @param double_ml1
-#' @param double_ml2
-#' @param alpha_for_Enet
+#' @param res.by.ML.Dev.Prog.Sig  The results of function ML.Dev.Prog.Sig
+#' @param train_data  The training data using in ML.Dev.Prog.Sig
+#' @param inputmatrix.list A list contain the data frames (colnames:ID,OS.time,OS,other variables), log2(x+1)， OS.time(day), OS(0/1)
+#' @param mode Choose MF models: 'all', 'single', 'double'
+#' @param single_ml If the mode is set to "single", you must fill in the following models: c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso").
+#' @param double_ml1  If the mode is set to "double", you need to fill in the modeling methods here: c('RSF', "StepCox","CoxBoost","Lasso").
+#' @param double_ml2   If the mode is set to "double", you need to fill in the modeling methods here: c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso")
+#' @param alpha_for_Enet 
 #' @param direction_for_stepcox
 #'
 #' @return
