@@ -1,11 +1,11 @@
-#' Title
+#' Calculating the risk score of the signatures from the previous paper.
 #'
-#' @param use_your_own_collected_sig
-#' @param collected_sig_table
-#' @param type.sig
-#' @param list_input_data
+#' @param use_your_own_collected_sig Whether to use your own collected signatures. T or F.
+#' @param collected_sig_table If use_your_own_collected_sig set as T, you should provide a data frame containing the information of the signatures. The column names of the data frame are "model"  "PMID"   "Cancer" "Author" "Coef"   "symbol". For example, 'Chen.33591634' '33591634''LGG' 'Chen' '0.7426' 'FGF7'. The 'model' consists of the first name of the first author and the PMID. The 'PMID' is from the paper. The 'Cancer' uses abbreviations in the format of the TCGA. 'Author' is the first name of the first author of the paper. 'Coef' is the coefficient of the variable in the signature. 'symbol' is the variable in the signature. If use_your_own_collected_sig is F, you don't need to provide this data. 
+#' @param type.sig If the use_your_own_collected_sig is F, here we collected some signatures of the LGG, GBM, and Glioma. You can choose c('Glioma', 'LGG', 'GBM'), c('Glioma'),c('GBM'), c('Glioma', 'LGG'), and some other combination for the signatures you want.
+#' @param list_input_data A list of the cohorts. Column names are 'ID', 'OS.time', 'OS', and the other variables. OS.time (Day). OS(1/0).
 #'
-#' @return
+#' @return A list of the risk score of the signature for each cohort you provide.
 #' @export
 #'
 #' @examples
