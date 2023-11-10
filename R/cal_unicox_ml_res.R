@@ -1,10 +1,10 @@
-#' Title
+#' Performing the Univariable Cox Regression Analysis for the Optimal Model
 #'
-#' @param res.by.ML.Dev.Prog.Sig
-#' @param optimal.model
-#' @param type
+#' @param res.by.ML.Dev.Prog.Sig The output result of ML.Dev.Prog.Sig
+#' @param optimal.model  One model name you choose. For example, 'RSF'.
+#' @param type c('categorical') or c('continuous). The type for the univariable Cox Regression. The 'categorical' means that the patients are divided into two subgroups based on the median of the risk score. This means conducting  univariable Cox regression with the categorical subgroup. The 'continuous' means calculating the univariable Cox regression with the continuous risk score.      
 #'
-#' @return
+#' @return A list of the univariable Cox regression result of the model.
 #' @export
 #'
 #' @examples
