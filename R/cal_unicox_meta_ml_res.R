@@ -1,8 +1,8 @@
-#' Title
+#' Perform the meta-analysis based on univariable Cox regression result.
 #'
-#' @param input
+#' @param input A data frame containing the univariable Cox regression result. The row names are the cohort names. The column names are "HR", "pvalue", "LCI", and "HCI".  LCI and HCI are matrices containing, respectively, the lower and higher bounds of the 95% confidence interval of each correlation coefficient. 
 #'
-#' @return
+#' @return The result of the meta-analysis.
 #' @export
 #'
 #' @examples
