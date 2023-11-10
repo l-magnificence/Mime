@@ -1,4 +1,4 @@
-#' Calculate AUC scores of Machine Learning Models in training data
+#' Calculate AUC scores of Machine Learning Models in all data
 #'
 #' @param res.by.ML.Dev.Prog.Sig the results of function ML.Dev.Prog.Sig
 #' @param train_data the training data using in ML.Dev.Prog.Sig
