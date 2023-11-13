@@ -1,5 +1,7 @@
 #' Developing the optimal predictive model for the dichotomous variables with machine learning algorithms
+#' 
 #' A function can be used to develop the predictive model for dichotomous variables with seven machine learning algorithms.
+#' 
 #' @param train_data The training data with the 'ID' and 'Var' as the first two columns. Starting in the third column are the variables used to construct the model. 'Var' is the target predictor variable for constructing the model. 'Var' contains only Y or N.
 #' @param list_train_vali_Data A list containing the training data and the other validation data. All the validation data have the same data form as the training data.
 #' @param candidate_genes The candidate variables used for constructing the predictive model.
