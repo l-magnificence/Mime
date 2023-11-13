@@ -1,5 +1,7 @@
 #' Screening out the core variables for the prognosis with the machine learning algorithms
+#' 
 #' A function can be used for screening out the core features from the given candidate genes with eight machine learning algorithms. 
+#' 
 #' @param InputMatrix A gene expression dataframe after log2(x+1) scaled. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead. 
 #' @param candidate_genes The input genes, that you want to screen out from, for identifying the core features.
 #' @param mode  We provide three modes including 'all', 'single', and 'all_without_SVM'. The 'all' mode means using all eight methods for selecting. The 'single' mode means using only one method for running. Since SVM takes so much time, we're singling him out. The 'all_without_SVM' mode means the other seven methods used for selecting. 
