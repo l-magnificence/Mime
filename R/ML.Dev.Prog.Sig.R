@@ -3,6 +3,8 @@
 #' @param train_data The training data with the ID, OS.time, and OS as the first three column names. Starting in the fourth column are the variables used to construct the model. The expression is scaled with log2(x+1). OS.time means the survival time(Day). OS means the survival status only containing 0 and 1 (1:Dead, 0:Alive). 
 #' @param list_train_vali_Data A list containing the training data and some validation data. The validation data has the same format as the training data.
 #' @param candidate_genes  The character vector containing the variables you just want to input for developing the predictive model. These variables should be included in the colnames of the training data.
+#' @param unicox.filter.for.candi # T or F. wheather you use univariable cox regression to screen out the prognostic variables. The default is T. 
+#' @param unicox_p_cutoff # The p value for the threshold of the Uni-Cox regression analysis, The default is 0.05
 #' @param mode Here we provide three modes including 'all', 'single', and 'double'. 'all' means using all ten algorithms and the combinations. 'single' means using only one of the ten algorithms. 'double' means using the combination with two algorithms.
 #' @param single_ml One of the ten algorithms including "RSF", "Enet", "StepCox", "CoxBoost", "plsRcox", "superpc", "GBM", "survivalsvm", "Ridge", "Lasso".
 #' @param alpha_for_Enet The parameter for the "Enet".  One of the values from 0.1 to 0.9. c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9). There are some conditions you could not set this parameter. [1] The mode is 'all'. [2] The mode is 'single' or 'double', but the 'Enet' is not included in the algorithms you choose. 
@@ -20,6 +22,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            list_train_vali_Data, # a list of the validation data and the training data. The cohort data is the same to the cohort data used for training
                            # 要求队列的测序深度不能太低，将genelist和队列列名取交集之后尽量保证丢失的信息不超过20%
                            candidate_genes = NULL,
+                          unicox.filter.for.candi = NULL, # 是否使用unicox 对基因进行筛选
+                           unicox_p_cutoff = NULL, # 默认为0.05 unicox 筛选阈值
                            mode = NULL, # all, single, double
                            single_ml = NULL,# c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso")
                            alpha_for_Enet = NULL , # 0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9
@@ -72,6 +76,105 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
     Sys.setenv(LANGUAGE = "en") #显示英文报错信息
     options(stringsAsFactors = FALSE) #禁止chr转成factor
+  }
+
+    #loading the functions
+  if(T){
+    
+    SigUnicox <- function(gene_list,
+                          inputSet,
+                          unicox_pcutoff #单因素回归的筛选阈值
+    ){
+      print("Starting the data preprocess")
+      ###############数据预处理#######
+      
+      print("Rejecting a null value")
+      
+      library(survival)
+      #将空值的基因变成0
+      # table(is.na(inputSet))
+      inputSet[is.na(inputSet)] = 0
+      # table(is.na(inputSet))
+      inputSet <- inputSet %>% as.data.frame()
+      inputSet$OS.time <- as.numeric(inputSet$OS.time)#时间数值化
+      inputSet <- inputSet[inputSet$OS.time>0,]#剔除时间为0
+      
+      # print("Correcting gene set")
+      # #将基因集矫正 策略为转化从ALIAS为ENTREZID， 然后再转化为SYMBOL,避免别名
+      # gene.df <- bitr(gene_list, fromType = "ALIAS",
+      #                 toType = c("ENTREZID"),
+      #                 OrgDb = org.Hs.eg.db)
+      # gene.df1 <- bitr(gene.df$ENTREZID, fromType = "ENTREZID",
+      #                  toType = c("SYMBOL"),
+      #                  OrgDb = org.Hs.eg.db)
+      # gene_list <- gene.df1$SYMBOL
+      # write.table(gene_list, "1.ID_transformed_genelist.txt",row.names = F, quote = F)
+      
+      #将genelist和表达矩阵的基因名称格式统一
+      gene_list <- gsub("-",".",gene_list)
+      gene_list <- gsub("_",".",gene_list)
+      colnames(inputSet)[4:ncol(inputSet)] <- gsub("-",".",colnames(inputSet)[4:ncol(inputSet)])
+      colnames(inputSet)[4:ncol(inputSet)] <- gsub("_",".",colnames(inputSet)[4:ncol(inputSet)])
+      
+      print("Gets the intersection of genelist and expression profile")
+      #获取genelist和表达谱的交集
+      comsa1 <- intersect(colnames(inputSet)[4:ncol(inputSet)],gene_list)
+      # write.table(comsa1,"2.intersection_genelist_exprSet_gene.txt", row.names = F, quote = F)
+      
+      print("Processing the  input representation matrix")
+      #对输入的表达矩阵进行处理
+      inputSet <- inputSet[,c("ID","OS.time","OS",comsa1)]
+      
+      inputSet[,c(1:2)] <- apply(inputSet[,c(1:2)],2,as.factor)
+      inputSet[,c(2:ncol(inputSet))] <- apply(inputSet[,c(2:ncol(inputSet))],2,as.numeric)
+      inputSet <- as.data.frame(inputSet)
+      # rownames(inputSet) <- inputSet$ID
+      
+      print("Data preprocessing completed")
+      #自定义显示进程函数
+      display.progress = function (index, totalN, breakN=20) {
+        if ( index %% ceiling(totalN/breakN)  ==0  ) {
+          cat(paste(round(index*100/totalN), "% ", sep=""))
+        }
+      }
+      
+      
+      ###############单变量cox#######
+      print("Stating the univariable cox regression")
+      
+      unicox <- data.frame()
+      for(i in 1:ncol(inputSet[,4:ncol(inputSet)])){
+        
+        display.progress(index = i, totalN = ncol(inputSet[,4:ncol(inputSet)]))
+        gene <- colnames(inputSet[,4:ncol(inputSet)])[i]
+        tmp <- data.frame(expr = as.numeric(inputSet[,4:ncol(inputSet)][,i]),
+                          futime = inputSet$OS.time,
+                          fustat = inputSet$OS,
+                          stringsAsFactors = F)
+        cox <- coxph(Surv(futime, fustat) ~ expr, data = tmp)
+        coxSummary <- summary(cox)
+        unicox <- rbind.data.frame(unicox,
+                                   data.frame(gene = gene,
+                                              HR = as.numeric(coxSummary$coefficients[,"exp(coef)"])[1],
+                                              z = as.numeric(coxSummary$coefficients[,"z"])[1],
+                                              pvalue = as.numeric(coxSummary$coefficients[,"Pr(>|z|)"])[1],
+                                              lower = as.numeric(coxSummary$conf.int[,3][1]),
+                                              upper = as.numeric(coxSummary$conf.int[,4][1]),
+                                              stringsAsFactors = F),
+                                   stringsAsFactors = F)
+      }
+      
+      # write.csv(unicox,"3.unicox_results.csv")
+      
+      print("Finished the univariable cox regression")
+      
+      
+      #进行变量筛选
+      selgene <- unicox[which(unicox$pvalue < unicox_pcutoff), "gene"]
+      return(selgene)
+      # write.table(selgene,paste("4.unicox_selected_cutoff_",unicox_pcutoff,"_genes.txt",sep = ""),row.names = F, quote = F)
+    }
+    
   }
 
   rf_nodesize <- nodesize
@@ -165,7 +268,36 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
     train_data[,c(1:2)] <- apply(train_data[,c(1:2)],2,as.factor)
     train_data[,c(2:3)] <- apply(train_data[,c(2:3)],2,as.numeric)
 
-
+    if(is.null(unicox_p_cutoff)){
+      unicox_p_cutoff =0.05
+    } else {
+      unicox_p_cutoff = unicox_p_cutoff
+    }
+    
+    
+    if(is.null(unicox.filter.for.candi)){
+      unicox.filter.for.candi =T
+    } else {
+      unicox.filter.for.candi = unicox.filter.for.candi
+    }
+    
+    if(unicox.filter.for.candi){
+      
+      cd.gene = common_feature[-c(1:3)]
+      
+      cd.gene1 = SigUnicox(gene_list = cd.gene,inputSet =train_data,unicox_pcutoff = unicox_p_cutoff )
+      
+      message(paste0('---the number of the final unicox filtered candidate genes is ', length(cd.gene1),' ---'))
+      print(cd.gene1)
+      cd.gene2 = c(common_feature[1:3],cd.gene1)
+      common_feature =cd.gene2
+      train_data =  as.data.frame(train_data)[,common_feature]
+      
+    } else{
+      message(paste0('---the number of the final not unicox filtered candidate genes is ', length(common_feature)-3,' ---'))
+      
+      
+    }
 
 
     est_dd <- as.data.frame(train_data)[, common_feature[-1]]
