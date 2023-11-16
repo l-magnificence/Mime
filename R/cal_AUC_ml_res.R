@@ -218,7 +218,7 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
               risk.survivalROC <- survivalROC(
                 Stime = x$OS.time,
                 status = x$OS,
-                marker = x$RS,
+                marker = -x$RS,
                 predict.time = 365 * AUC_time,
                 method = "NNE", span = 0.25 * nrow(x)^(-0.20)
               )
@@ -226,7 +226,7 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
               risk.survivalROC <- survivalROC(
                 Stime = x$OS.time,
                 status = x$OS,
-                marker = x$RS,
+                marker = -x$RS,
                 predict.time = 365 * AUC_time,
                 method = "KM"
               )
