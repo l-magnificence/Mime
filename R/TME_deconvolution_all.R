@@ -31,66 +31,66 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
                                 deconvolution_methods = "ALL",
                                 arrays = F) {
     if (deconvolution_methods == "ALL") {
-      cibersort <- deconvo_tme(eset = test.matrix, method = "cibersort", arrays = arrays, perm = 100)
-      epic <- deconvo_tme(eset = test.matrix, method = "epic", arrays = arrays)
-      mcp <- deconvo_tme(eset = test.matrix, method = "mcpcounter")
-      xcell <- deconvo_tme(eset = test.matrix, method = "xcell", arrays = arrays)
-      estimate <- deconvo_tme(eset = test.matrix, method = "estimate")
+      cibersort <- IOBR::deconvo_tme(eset = test.matrix, method = "cibersort", arrays = arrays, perm = 100)
+      epic <- IOBR::deconvo_tme(eset = test.matrix, method = "epic", arrays = arrays)
+      mcp <- IOBR::deconvo_tme(eset = test.matrix, method = "mcpcounter")
+      xcell <- IOBR::deconvo_tme(eset = test.matrix, method = "xcell", arrays = arrays)
+      estimate <- IOBR::deconvo_tme(eset = test.matrix, method = "estimate")
       estimate$ID <- gsub("-", ".", estimate$ID)
-      timer <- deconvo_tme(eset = test.matrix, method = "timer", group_list = rep("stad", dim(test.matrix)[2]))
-      quantiseq <- deconvo_tme(eset = test.matrix, tumor = TRUE, arrays = arrays, scale_mrna = TRUE, method = "quantiseq")
-      ips <- deconvo_tme(eset = test.matrix, method = "ips", plot = FALSE)
+      timer <- IOBR::deconvo_tme(eset = test.matrix, method = "timer", group_list = rep("stad", dim(test.matrix)[2]))
+      quantiseq <- IOBR::deconvo_tme(eset = test.matrix, tumor = TRUE, arrays = arrays, scale_mrna = TRUE, method = "quantiseq")
+      ips <- IOBR::deconvo_tme(eset = test.matrix, method = "ips", plot = FALSE)
 
       tme_combine <- cibersort %>%
-        inner_join(., mcp, by = "ID") %>%
-        inner_join(., xcell, by = "ID") %>%
-        inner_join(., epic, by = "ID") %>%
-        inner_join(., estimate, by = "ID") %>%
-        inner_join(., timer, by = "ID") %>%
-        inner_join(., quantiseq, by = "ID") %>%
-        inner_join(., ips, by = "ID")
+        dplyr::inner_join(., mcp, by = "ID") %>%
+        dplyr::inner_join(., xcell, by = "ID") %>%
+        dplyr::inner_join(., epic, by = "ID") %>%
+        dplyr::inner_join(., estimate, by = "ID") %>%
+        dplyr::inner_join(., timer, by = "ID") %>%
+        dplyr::inner_join(., quantiseq, by = "ID") %>%
+        dplyr::inner_join(., ips, by = "ID")
 
       resultList <- list("tme_combine" = tme_combine)
       return(resultList)
     } else if (deconvolution_methods %in% tme_deconvolution_methods) {
       if ("cibersort" == deconvolution_methods) {
-        cibersort <- deconvo_tme(eset = test.matrix, method = "cibersort", arrays = arrays, perm = 100)
+        cibersort <- IOBR::deconvo_tme(eset = test.matrix, method = "cibersort", arrays = arrays, perm = 100)
         resultList <- list("cibersort" = cibersort)
         return(resultList)
       }
       if ("epic" == deconvolution_methods) {
-        epic <- deconvo_tme(eset = test.matrix, method = "epic", arrays = arrays)
+        epic <- IOBR::deconvo_tme(eset = test.matrix, method = "epic", arrays = arrays)
         resultList <- list("epic" = epic)
         return(resultList)
       }
       if ("mcpcounter" == deconvolution_methods) {
-        mcp <- deconvo_tme(eset = test.matrix, method = "mcpcounter")
+        mcp <- IOBR::deconvo_tme(eset = test.matrix, method = "mcpcounter")
         resultList <- list("mcpcounter" = mcp)
         return(resultList)
       }
       if ("xcell" == deconvolution_methods) {
-        xcell <- deconvo_tme(eset = test.matrix, method = "xcell", arrays = arrays)
+        xcell <- IOBR::deconvo_tme(eset = test.matrix, method = "xcell", arrays = arrays)
         resultList <- list("xcell" = xcell)
         return(resultList)
       }
       if ("estimate" == deconvolution_methods) {
-        estimate <- deconvo_tme(eset = test.matrix, method = "estimate")
+        estimate <- IOBR::deconvo_tme(eset = test.matrix, method = "estimate")
         estimate$ID <- gsub("-", ".", estimate$ID)
         resultList <- list("estimate" = estimate)
         return(resultList)
       }
       if ("timer" == deconvolution_methods) {
-        timer <- deconvo_tme(eset = test.matrix, method = "timer", group_list = rep("stad", dim(test.matrix)[2]))
+        timer <- IOBR::deconvo_tme(eset = test.matrix, method = "timer", group_list = rep("stad", dim(test.matrix)[2]))
         resultList <- list("timer" = timer)
         return(resultList)
       }
       if ("quantiseq" == deconvolution_methods) {
-        quantiseq <- deconvo_tme(eset = test.matrix, tumor = TRUE, arrays = arrays, scale_mrna = TRUE, method = "quantiseq")
+        quantiseq <- IOBR::deconvo_tme(eset = test.matrix, tumor = TRUE, arrays = arrays, scale_mrna = TRUE, method = "quantiseq")
         resultList <- list("quantiseq" = quantiseq)
         return(resultList)
       }
       if ("ips" == deconvolution_methods) {
-        ips <- deconvo_tme(eset = test.matrix, method = "ips", plot = FALSE)
+        ips <- IOBR::deconvo_tme(eset = test.matrix, method = "ips", plot = FALSE)
         resultList <- list("ips" = ips)
         return(resultList)
       }
