@@ -122,7 +122,7 @@ cal_auc_pre.prog.sig <- function(use_your_own_collected_sig, # 是否使用您�
             risk.survivalROC <- survivalROC(
               Stime = x$OS.time,
               status = x$OS,
-              marker = x$RS,
+              marker = -x$RS,
               predict.time = 365 * AUC_time,
               method = "NNE", span = 0.25 * nrow(x)^(-0.20)
             )
@@ -130,7 +130,7 @@ cal_auc_pre.prog.sig <- function(use_your_own_collected_sig, # 是否使用您�
             risk.survivalROC <- survivalROC(
               Stime = x$OS.time,
               status = x$OS,
-              marker = x$RS,
+              marker = -x$RS,
               predict.time = 365 * AUC_time,
               method = "KM"
             )
