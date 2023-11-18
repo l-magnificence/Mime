@@ -1,6 +1,6 @@
 #' Receiver operating characteristic curves when predicting response
 #'
-#' Creates a plot of ROC among different methods when predicting response
+#' Creates a plot of ROC for specific method among different datasets when predicting response
 #'
 #' @param object Output of function ML.Dev.Pred.Category.Sig
 #' @param model_name Model name in object to plot
