@@ -1,6 +1,6 @@
 #' Select critical genes from an gene list
 #'
-#' Creates a upset plot of genes filtered by different methods 
+#' Creates an upset plot of genes filtered by different methods 
 #'
 #' @param object Output of function ML.Corefeature.Prog.Screen whose mode can be "all" or "all_without_SVM"
 #' @param sets A vector of names for methods in object. If NULL, show all methods (default)
