@@ -6,7 +6,7 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The Mime package provides a user-friendly solution for constructing
+The `Mime` package provides a user-friendly solution for constructing
 machine learning-based integration models from transcriptomic data.
 
 With the widespread use of high-throughput sequencing technologies,
