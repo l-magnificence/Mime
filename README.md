@@ -102,9 +102,69 @@ res= ML.Dev.Prog.Sig(train_data = list_train_vali_Data$Dataset1,
                      unicox_p_cutoff = 0.05,
                      candidate_genes = genelist,
                      mode = 'all',nodesize =5,seed = 5201314 )
-```
-``` r
 cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.35)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/cindex_dis_all.png)
+
+``` r
+cindex_dis_select(res,
+                  model="StepCox[forward] + plsRcox",
+                  order= names(list_train_vali_Data))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/cindex_specific_model.png)
+
+``` r
+survplot <- vector("list",2) 
+for (i in c(1:2)) {
+  print(survplot[[i]]<-rs_sur(res, model_name = "StepCox[forward] + plsRcox",dataset = names(list_train_vali_Data)[i],
+                              #color=c("blue","green"),
+                              median.line = "hv",
+                              cutoff = 0.5,
+                              conf.int = T,
+                              xlab="Day",pval.coord=c(1000,0.9)))
+}
+aplot::plot_list(gglist=survplot,ncol=2)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/sur_km.png)
+
+``` r
+all.auc.1y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
+                            inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1,
+                            auc_cal_method="KM")
+all.auc.3y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
+                            inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 3,
+                            auc_cal_method="KM")
+all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
+                            inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5,
+                            auc_cal_method="KM")
+```
+``` r
+auc_dis_all(all.auc.1y,
+            dataset = names(list_train_vali_Data),
+            validate_set=names(list_train_vali_Data)[-1],
+            order= names(list_train_vali_Data),
+            width = 0.35,
+            year=1)
+
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc1y_dis_all.png)
+
+``` r
+roc_vis(all.auc.1y,
+        model_name = "StepCox[forward] + plsRcox",
+        dataset = names(list_train_vali_Data),
+        order= names(list_train_vali_Data),
+        anno_position=c(0.65,0.55),
+        year=1)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc1y_roc.png)
+
+``` r
+auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
+               model_name="StepCox[forward] + plsRcox",
+               dataset = names(list_train_vali_Data),
+               order= names(list_train_vali_Data),
+               year=c(1,3,5))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc_specific_model.png)
 
