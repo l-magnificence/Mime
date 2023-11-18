@@ -321,7 +321,7 @@ aplot::plot_list(gglist=corplot,ncol=2)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_cor.png)
 
-Plot survival curve of patients according to median expression level of specific gene among different datasets::
+Plot survival curve of patients according to median expression level of specific gene among different datasets:
 ``` r
 survplot <- vector("list",2) 
 for (i in c(1:2)) {
@@ -339,7 +339,7 @@ aplot::plot_list(gglist=survplot,ncol=2)
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_km.png)
 
 ## Citations
-**_Mime_**
+If you use **_Mime_** in the study, please cite the following publication:
 - Mime: A flexible machine-learning framework to construct and visualize models for clinical characteristic prediction and feature selection. Unpublished. 2023.
 
 ## Contact
