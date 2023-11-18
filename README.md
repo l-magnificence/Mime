@@ -23,7 +23,7 @@ It offers four main applications:
 3.  Conducting core feature selection related to prognosis using 8
     machine learning methods.
 4.  Visualizing the performance of each model.
-
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/graph.jpg)
 ## Installation
 
 You can install the development version of Mime like so:
