@@ -18,11 +18,10 @@ response.
 
 It offers four main applications:
 
-1.  Establishing prognosis models using 10 machine learning algorithms.
-2.  Building binary response models with 7 machine learning algorithms.
-3.  Conducting core feature selection related to prognosis using 8
-    machine learning methods.
-4.  Visualizing the performance of each model.
+- Establishing prognosis models using 10 machine learning algorithms.
+- Building binary response models with 7 machine learning algorithms.
+- Conducting core feature selection related to prognosis using 8 machine learning methods.
+- Visualizing the performance of each model.
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/graph.jpg)
 ## Install
 
@@ -89,9 +88,10 @@ load("./genelist.Rdata")
 ```
 This gene set is associated with Wnt/β-catenin signalling from MSigDB.
 
-We recommend training dataset with more than 100 samples and gene set with more than 50 genes.
+- We recommend training dataset with more than 100 samples and gene set with more than 50 genes.
 
 ### 1. Construct predicting models for prognosis
+#### 1.1 Select the optimal model
 ``` r
 library(Mime)
 load("./Example.cohort.Rdata")
@@ -102,17 +102,27 @@ res <- ML.Dev.Prog.Sig(train_data = list_train_vali_Data$Dataset1,
                      unicox_p_cutoff = 0.05,
                      candidate_genes = genelist,
                      mode = 'all',nodesize =5,seed = 5201314 )
+```
+- `ML.Dev.Prog.Sig()` provides three modes including `all`, `single`, and `double`. `all` means using all ten algorithms and the combinations. `single` means using only one of the ten algorithms. `double` means using the combination with two algorithms. In most casees, we will generally use `all` mode to analysis data.
+- If you set `unicox.filter.for.candi` as `T` (default), `Mime` will firstly perform univariable cox regression among  provided genes in the training dataset to screen out the prognostic variables which are then used to construct models.
+
+Plot C-index of each model:
+``` r
 cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.35)
 ```
+We can find that `StepCox[forward] + plsRcox` have the highest C-index.
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/cindex_dis_all.png)
 
+Plot C-index of specific model among different datasets:
 ``` r
 cindex_dis_select(res,
                   model="StepCox[forward] + plsRcox",
                   order= names(list_train_vali_Data))
 ```
+- If input object `res` is from mode `all` used in `ML.Dev.Prog.Sig()`, you should define model as specific model name, while define model as `SOD`.
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/cindex_specific_model.png)
 
+Plot survival curve of patients according to risk score calculated by specific model among different datasets:
 ``` r
 survplot <- vector("list",2) 
 for (i in c(1:2)) {
@@ -127,6 +137,7 @@ aplot::plot_list(gglist=survplot,ncol=2)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/sur_km.png)
 
+#### 1.2 Calculate AUC scores of each model 
 ``` r
 all.auc.1y <- cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
                             inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1,
@@ -138,6 +149,10 @@ all.auc.5y <- cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_trai
                             inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5,
                             auc_cal_method="KM")
 ```
+- `cal_AUC_ml_res()` also provides three modes, which should be consistent with mode uesd by `ML.Dev.Prog.Sig()`.
+- `AUC_time` for 1 year, 2 years, 3 years......, We recommend using the shortest survival time among all datasets.
+
+Here, we only plot 1-year AUC predicted by all models: 
 ``` r
 auc_dis_all(all.auc.1y,
             dataset = names(list_train_vali_Data),
@@ -149,6 +164,7 @@ auc_dis_all(all.auc.1y,
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc1y_dis_all.png)
 
+Plot ROC of specific model among different datasets:
 ``` r
 roc_vis(all.auc.1y,
         model_name = "StepCox[forward] + plsRcox",
@@ -159,6 +175,7 @@ roc_vis(all.auc.1y,
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc1y_roc.png)
 
+Plot 1, 3, and 5-year AUC of specific model among different datasets:
 ``` r
 auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
                model_name="StepCox[forward] + plsRcox",
@@ -168,17 +185,27 @@ auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc_specific_model.png)
 
+#### 1.3 Meta-analysis of univariate cox regression for specific model 
 ``` r
 unicox.rs.res <- cal_unicox_ml_res(res.by.ML.Dev.Prog.Sig = res,optimal.model = "StepCox[forward] + plsRcox",type ='categorical')
 metamodel <- cal_unicox_meta_ml_res(input = unicox.rs.res)
 meta_unicox_vis(metamodel,
                 dataset = names(list_train_vali_Data))
 ```
+- `type` includes `categorical` and `continuous`. `categorical` means that the patients are divided into two subgroups based on the median of the risk score. `continuous` means performing the univariable Cox regression bu using the continuous risk score.
+      
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/meta_rs.png)
 
+#### 1.4 Comparison with previously pblished models
 ``` r
 rs.glioma.lgg.gbm <- cal_RS_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('LGG','GBM','Glioma'),
                                         list_input_data = list_train_vali_Data)
+```
+- `cal_RS_pre.prog.sig()` will calculate the risk score based on the signatures from previous papers.
+- If `use_your_own_collected_sig` is set as T, you should provide a data frame containing the information of the signatures. The column names of the data frame are model, PMID, Cancer, Author, Coef and symbol. The `model` consists of the first name of the first author and PMID of paper. `Cancer` uses abbreviations like the format of TCGA. `Author` is the first name of the first author. `Coef` is the coefficient of each variable. `symbol` is the gene name. Otherwise, we use our collected models of glioma.
+
+Compare the HR of specific model with previously published models:
+``` r
 HR_com(rs.glioma.lgg.gbm,
        res,
        model_name="StepCox[forward] + plsRcox",
@@ -190,6 +217,11 @@ HR_com(rs.glioma.lgg.gbm,
 ``` r
 cc.glioma.lgg.gbm <- cal_cindex_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('Glioma','LGG','GBM'),
                                             list_input_data = list_train_vali_Data)
+```
+- `cal_cindex_pre.prog.sig()` will calculate the C-index based on the signatures from previous papers like the fuction `cal_RS_pre.prog.sig()`.
+
+Compare the C-index of specific model with previously published models:
+``` r
 cindex_comp(cc.glioma.lgg.gbm,
             res,
             model_name="StepCox[forward] + plsRcox",
@@ -202,6 +234,12 @@ auc.glioma.lgg.gbm.1 <- cal_auc_pre.prog.sig(use_your_own_collected_sig = F,
                                             type.sig = c('Glioma','LGG','GBM'),
                                             list_input_data = list_train_vali_Data,AUC_time = 1,
                                             auc_cal_method = 'KM')
+```
+- `cal_auc_pre.prog.sig()` will calculate the AUC based on the signatures from previous papers like the fuction `cal_RS_pre.prog.sig()`.
+- `AUC_time` is like the requirement by `cal_AUC_ml_res()`.
+
+Compare the AUC of specific model with previously published models:
+``` r
 auc_comp(auc.glioma.lgg.gbm.1,
          all.auc.1y,
          model_name="StepCox[forward] + plsRcox",
@@ -221,12 +259,16 @@ res.ici <- ML.Dev.Pred.Category.Sig(train_data = list_train_vali_Data$training,
                                       cores_for_parallel = 60
 )
 ```
+- `ML.Dev.Pred.Category.Sig()` develop the predictive model for the binary variables with machine learning algorithms.
+
+Plot AUC of different methods among different datasets:
 ``` r
 auc_vis_category_all(res.ici,dataset = c("training","validation"),
                      order= c("training","validation"))
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_auc_all.png)
 
+Plot ROC of specific method among different datasets:
 ``` r
 plot_list<-list()
 methods <- c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')
@@ -247,15 +289,23 @@ load("./genelist.Rdata")
 res.feature.all <- ML.Corefeature.Prog.Screen(InputMatrix = list_train_vali_Data$Dataset1,
                                             candidate_genes = genelist,
                                             mode = "all",nodesize =5,seed = 5201314 )
+```
+- `ML.Corefeature.Prog.Screen()` provides three modes including `all`, `single`, and `all_without_SVM`. `all` mode means using all eight methods for selecting. `single` mode means using only one method for running. Since SVM takes too long time, we define other seven methods used for selecting as `all_without_SVM` mode.
+- The output genes are closely associated with patient outcome and higher frequence of screening means more critical.
+
+Upset plot of genes filtered by different methods:
+``` r
 core_feature_select(res.feature.all)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect.png)
 
+Plot the rank of genes filtered by different methods:
 ``` r
 core_feature_rank(res.feature.all, top=20)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect_rank.png)
 
+Here, we randomly select top two genes to analyze their correlation:
 ``` r
 dataset_col<-c("#3182BDFF","#E6550DFF")
 corplot <- list()
@@ -271,6 +321,7 @@ aplot::plot_list(gglist=corplot,ncol=2)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_cor.png)
 
+Plot survival curve of patients according to median expression level of specific gene among different datasets::
 ``` r
 survplot <- vector("list",2) 
 for (i in c(1:2)) {
@@ -287,3 +338,11 @@ aplot::plot_list(gglist=survplot,ncol=2)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_km.png)
 
+## Citations
+**_Mime_**
+- Mime: A flexible machine-learning framework to construct and visualize models for clinical characteristic prediction and feature selection. Unpublished. 2023.
+
+## Contact
+Any technical question please list in Issues section.
+
+  
