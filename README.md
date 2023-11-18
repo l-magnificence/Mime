@@ -91,12 +91,12 @@ This gene set is associated with Wnt/β-catenin signalling from MSigDB.
 
 We recommend training dataset with more than 100 samples and gene set with more than 50 genes.
 
-### 1. Construct prognostic models
+### 1. Construct predicting models for prognosis
 ``` r
 library(Mime)
 load("./Example.cohort.Rdata")
 load("./genelist.Rdata")
-res= ML.Dev.Prog.Sig(train_data = list_train_vali_Data$Dataset1,
+res <- ML.Dev.Prog.Sig(train_data = list_train_vali_Data$Dataset1,
                      list_train_vali_Data = list_train_vali_Data,
                      unicox.filter.for.candi = T,
                      unicox_p_cutoff = 0.05,
@@ -128,13 +128,13 @@ aplot::plot_list(gglist=survplot,ncol=2)
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/sur_km.png)
 
 ``` r
-all.auc.1y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
+all.auc.1y <- cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
                             inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 1,
                             auc_cal_method="KM")
-all.auc.3y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
+all.auc.3y <- cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
                             inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 3,
                             auc_cal_method="KM")
-all.auc.5y = cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
+all.auc.5y <- cal_AUC_ml_res(res.by.ML.Dev.Prog.Sig = res,train_data = list_train_vali_Data[["Dataset1"]],
                             inputmatrix.list = list_train_vali_Data,mode = 'all',AUC_time = 5,
                             auc_cal_method="KM")
 ```
@@ -167,4 +167,123 @@ auc_dis_select(list(all.auc.1y,all.auc.3y,all.auc.5y),
                year=c(1,3,5))
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc_specific_model.png)
+
+``` r
+unicox.rs.res <- cal_unicox_ml_res(res.by.ML.Dev.Prog.Sig = res,optimal.model = "StepCox[forward] + plsRcox",type ='categorical')
+metamodel <- cal_unicox_meta_ml_res(input = unicox.rs.res)
+meta_unicox_vis(metamodel,
+                dataset = names(list_train_vali_Data))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/meta_rs.png)
+
+``` r
+rs.glioma.lgg.gbm <- cal_RS_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('LGG','GBM','Glioma'),
+                                        list_input_data = list_train_vali_Data)
+HR_com(rs.glioma.lgg.gbm,
+       res,
+       model_name="StepCox[forward] + plsRcox",
+       dataset=names(list_train_vali_Data),
+       type = "categorical")
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/hr_comp.png)
+
+``` r
+cc.glioma.lgg.gbm <- cal_cindex_pre.prog.sig(use_your_own_collected_sig = F,type.sig = c('Glioma','LGG','GBM'),
+                                            list_input_data = list_train_vali_Data)
+cindex_comp(cc.glioma.lgg.gbm,
+            res,
+            model_name="StepCox[forward] + plsRcox",
+            dataset=names(list_train_vali_Data))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/cindex_comp.png)
+
+``` r
+auc.glioma.lgg.gbm.1 <- cal_auc_pre.prog.sig(use_your_own_collected_sig = F,
+                                            type.sig = c('Glioma','LGG','GBM'),
+                                            list_input_data = list_train_vali_Data,AUC_time = 1,
+                                            auc_cal_method = 'KM')
+auc_comp(auc.glioma.lgg.gbm.1,
+         all.auc.1y,
+         model_name="StepCox[forward] + plsRcox",
+         dataset=names(list_train_vali_Data))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc_comp_1y.png)
+
+### 2. Construct predicting models for response
+``` r
+load("./Example.ici.Rdata")
+load("./genelist.Rdata")
+res.ici <- ML.Dev.Pred.Category.Sig(train_data = list_train_vali_Data$training,
+                                      list_train_vali_Data = list_train_vali_Data,
+                                      candidate_genes = genelist,
+                                      methods = c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass'),
+                                      seed = 5201314,
+                                      cores_for_parallel = 60
+)
+```
+``` r
+auc_vis_category_all(res.ici,dataset = c("training","validation"),
+                     order= c("training","validation"))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_auc_all.png)
+
+``` r
+plot_list<-list()
+methods <- c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')
+for (i in methods) {
+  plot_list[[i]]<-roc_vis_category(res.ici,model_name = i,dataset = c("training","validation"),
+                                   order= c("training","validation"),
+                                   anno_position=c(0.4,0.25))
+}
+aplot::plot_list(gglist=plot_list,ncol=3)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_roc_all.png)
+
+### 3. Core feature selection
+
+``` r
+load("./Example.cohort.Rdata")
+load("./genelist.Rdata")
+res.feature.all <- ML.Corefeature.Prog.Screen(InputMatrix = list_train_vali_Data$Dataset1,
+                                            candidate_genes = genelist,
+                                            mode = "all",nodesize =5,seed = 5201314 )
+core_feature_select(res.feature.all)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect.png)
+
+``` r
+core_feature_rank(res.feature.all, top=20)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect_rank.png)
+
+``` r
+dataset_col<-c("#3182BDFF","#E6550DFF")
+corplot <- list()
+for (i in c(1:2)) {
+  print(corplot[[i]]<-cor_plot(list_train_vali_Data[[i]],
+                               dataset=names(list_train_vali_Data)[i],
+                               color = dataset_col[i],
+                               feature1="PSEN2",
+                               feature2="WNT5B",
+                               method="pearson"))
+}
+aplot::plot_list(gglist=corplot,ncol=2)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_cor.png)
+
+``` r
+survplot <- vector("list",2) 
+for (i in c(1:2)) {
+  print(survplot[[i]]<-core_feature_sur("PSEN2", 
+                                        InputMatrix=list_train_vali_Data[[i]],
+                                        dataset = names(list_train_vali_Data)[i],
+                                        #color=c("blue","green"),
+                                        median.line = "hv",
+                                        cutoff = 0.5,
+                                        conf.int = T,
+                                        xlab="Day",pval.coord=c(1000,0.9)))
+}
+aplot::plot_list(gglist=survplot,ncol=2)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_km.png)
 
