@@ -87,26 +87,24 @@ load("./genelist.Rdata")
 #>[40] "HEY2"   "HEY1"   "HDAC11"
 
 ```
+This gene set is associated with Wnt/β-catenin signalling from MSigDB.
+
 We recommend training dataset with more than 100 samples and gene set with more than 50 genes.
 
+### 1. Construct prognostic models
 ``` r
-summary(cars)
-#>      speed           dist       
-#>  Min.   : 4.0   Min.   :  2.00  
-#>  1st Qu.:12.0   1st Qu.: 26.00  
-#>  Median :15.0   Median : 36.00  
-#>  Mean   :15.4   Mean   : 42.98  
-#>  3rd Qu.:19.0   3rd Qu.: 56.00  
-#>  Max.   :25.0   Max.   :120.00
+library(Mime)
+load("./Example.cohort.Rdata")
+load("./genelist.Rdata")
+res= ML.Dev.Prog.Sig(train_data = list_train_vali_Data$Dataset1,
+                     list_train_vali_Data = list_train_vali_Data,
+                     unicox.filter.for.candi = T,
+                     unicox_p_cutoff = 0.05,
+                     candidate_genes = genelist,
+                     mode = 'all',nodesize =5,seed = 5201314 )
 ```
+``` r
+cindex_dis_all(res,validate_set = names(list_train_vali_Data)[-1],order =names(list_train_vali_Data),width = 0.35)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/cindex_dis_all.png)
 
-You’ll still need to render `README.Rmd` regularly, to keep `README.md`
-up-to-date. `devtools::build_readme()` is handy for this. You could also
-use GitHub Actions to re-render `README.Rmd` every time you push. An
-example workflow can be found here:
-<https://github.com/r-lib/actions/tree/v1/examples>.
-
-You can also embed plots, for example:
-
-In that case, don’t forget to commit and push the resulting figure
-files, so they display on GitHub and CRAN.
