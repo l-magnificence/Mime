@@ -1,22 +1,42 @@
-#' Title
+#' Tumor microenvironment deconvolution using immunedeconv
 #'
 #' @param inputmatrix.list A gene expression dataframe after log2(x+1) scaled. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.
-#' @param deconvolution_methods Deconvolution Methods in IOBR::deconvo_tme
+#' @param deconvolution_method Deconvolution Methods in IOBR::deconvo_tme
 #' @param microarray_names Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
-#'
+#' @param column Only relevant if `gene_expression` is an ExpressionSet. Defines in which column
+#'   of fData the HGNC symbol can be found.
+#' @param indications a character vector with one indication per
+#'   sample for TIMER. Argument is ignored for all other methods.
+#' @param tumor use a signature matrix/procedure optimized for tumor samples,
+#'   if supported by the method. Currently affects EPIC and
+#' @param rmgenes a character vector of gene symbols. Exclude these genes from the analysis.
+#'   Use this to exclude e.g. noisy genes.
+#' @param scale_mrna logical. If FALSE, disable correction for mRNA content of different cell types.
+#'   This is supported by methods that compute an absolute score (EPIC)
+#' @param expected_cell_types Limit the analysis to the cell types given in this list. If the cell
+#'   types present in the sample are known *a priori*, setting this can improve results for
+#'   xCell (see https://github.com/grst/immunedeconv/issues/1).
+#' @param ... arguments passed to the respective method
+#' @return `list` containing `data.frame` with `cell_type` as first column and a column with the
+#'     calculated cell fractions for each sample.
 #' @return a list containing deconvolution scores in each cohorts and ML methods
 #' @export
 #'
 #' @examples
 #' test.devo <- TME_deconvolution_all(list_train_vali_Data)
-
 TME_deconvolution_all <- function(inputmatrix.list, # A list contain the dataframes (colnames:ID,OS.time,OS,other genes), log2(x+1)， OS.time(day), OS(0/1)
-                                  deconvolution_methods = "ALL", # Deconvolution Methods in IOBR::deconvo_tme
-                                  microarray_names = "none" # Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
-) {
+                                  deconvolution_method = c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs"), # Deconvolution Methods in c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs")
+                                  microarray_names = "none", # Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
+                                  indications = NULL,
+                                  tumor = TRUE,
+                                  column = "gene_symbol",
+                                  rmgenes = NULL,
+                                  scale_mrna = TRUE,
+                                  expected_cell_types = NULL,
+                                  ...) {
   #### loading the packages ########
   if (T) {
-    library(IOBR)
+    library(immunedeconv)
     library(dplyr)
     library(magrittr)
     library(data.table)
@@ -26,74 +46,70 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
   }
 
   message("--- Data preprocessing ---")
+  annotate_cell_type <- function(result_table, method) {
+    cell_type_map %>%
+      filter(method_dataset == !!method) %>%
+      inner_join(result_table, by = "method_cell_type") %>%
+      select(-method_cell_type, -method_dataset)
+  }
   # Deconvolution by IOBR
-  TME_deconvolution <- function(test.matrix,
-                                deconvolution_methods = "ALL",
-                                arrays = F) {
-    if (deconvolution_methods == "ALL") {
-      cibersort <- IOBR::deconvo_tme(eset = test.matrix, method = "cibersort", arrays = arrays, perm = 100)
-      epic <- IOBR::deconvo_tme(eset = test.matrix, method = "epic", arrays = arrays)
-      mcp <- IOBR::deconvo_tme(eset = test.matrix, method = "mcpcounter")
-      xcell <- IOBR::deconvo_tme(eset = test.matrix, method = "xcell", arrays = arrays)
-      estimate <- IOBR::deconvo_tme(eset = test.matrix, method = "estimate")
-      estimate$ID <- gsub("-", ".", estimate$ID)
-      timer <- IOBR::deconvo_tme(eset = test.matrix, method = "timer", group_list = rep("stad", dim(test.matrix)[2]))
-      quantiseq <- IOBR::deconvo_tme(eset = test.matrix, tumor = TRUE, arrays = arrays, scale_mrna = TRUE, method = "quantiseq")
-      ips <- IOBR::deconvo_tme(eset = test.matrix, method = "ips", plot = FALSE)
+  TME_deconvolution <- function(gene_expression,
+                                deconvolution_method = c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs"),
+                                tumor = TRUE,
+                                arrays = FALSE, column = "gene_symbol",
+                                rmgenes = NULL, scale_mrna = TRUE,
+                                expected_cell_types = NULL,
+                                ...) {
+    deconvolution_methods <- c(
+      "EPIC" = "epic",
+      "xCell" = "xcell",
+      "CIBERSORT" = "cibersort",
+      "CIBERSORT (abs.)" = "cibersort_abs",
+      "ABIS" = "abis",
+      "ESTIMATE" = "estimate"
+    )
 
-      tme_combine <- cibersort %>%
-        dplyr::inner_join(., mcp, by = "ID") %>%
-        dplyr::inner_join(., xcell, by = "ID") %>%
-        dplyr::inner_join(., epic, by = "ID") %>%
-        dplyr::inner_join(., estimate, by = "ID") %>%
-        dplyr::inner_join(., timer, by = "ID") %>%
-        dplyr::inner_join(., quantiseq, by = "ID") %>%
-        dplyr::inner_join(., ips, by = "ID")
+    if (all(deconvolution_method %in% deconvolution_methods)) {
+      # convert expression set to matrix, if required.
+      if (is(gene_expression, "ExpressionSet")) {
+        gene_expression <- gene_expression %>% eset_to_matrix(column)
+      }
+
+      if (!is.null(rmgenes)) {
+        gene_expression <- gene_expression[!rownames(gene_expression) %in% rmgenes, ]
+      }
+
+      tme_combine <- list()
+
+      for (method in deconvolution_method) {
+        message(paste0("\n", ">>> Running ", method))
+
+        # run selected method
+        res <- switch(method,
+          xcell = immunedeconv::deconvolute_xcell(gene_expression, arrays = arrays, expected_cell_types = expected_cell_types, ...),
+          epic = immunedeconv::deconvolute_epic(gene_expression, tumor = tumor, scale_mrna = scale_mrna, ...),
+          cibersort = immunedeconv::deconvolute_cibersort(gene_expression,
+            absolute = FALSE,
+            arrays = arrays, ...
+          ),
+          cibersort_abs = immunedeconv::deconvolute_cibersort(gene_expression,
+            absolute = TRUE,
+            arrays = arrays, ...
+          ),
+          abis = immunedeconv::deconvolute_abis(gene_expression, arrays = arrays),
+          estimate = immunedeconv::deconvolute_estimate(gene_expression)
+        )
+
+        # convert to tibble and annotate unified cell_type names
+        res <- res %>%
+          as_tibble(rownames = "method_cell_type") %>%
+          annotate_cell_type(method = method)
+
+        tme_combine[[method]] <- res
+      }
 
       resultList <- list("tme_combine" = tme_combine)
       return(resultList)
-    } else if (deconvolution_methods %in% tme_deconvolution_methods) {
-      if ("cibersort" == deconvolution_methods) {
-        cibersort <- IOBR::deconvo_tme(eset = test.matrix, method = "cibersort", arrays = arrays, perm = 100)
-        resultList <- list("cibersort" = cibersort)
-        return(resultList)
-      }
-      if ("epic" == deconvolution_methods) {
-        epic <- IOBR::deconvo_tme(eset = test.matrix, method = "epic", arrays = arrays)
-        resultList <- list("epic" = epic)
-        return(resultList)
-      }
-      if ("mcpcounter" == deconvolution_methods) {
-        mcp <- IOBR::deconvo_tme(eset = test.matrix, method = "mcpcounter")
-        resultList <- list("mcpcounter" = mcp)
-        return(resultList)
-      }
-      if ("xcell" == deconvolution_methods) {
-        xcell <- IOBR::deconvo_tme(eset = test.matrix, method = "xcell", arrays = arrays)
-        resultList <- list("xcell" = xcell)
-        return(resultList)
-      }
-      if ("estimate" == deconvolution_methods) {
-        estimate <- IOBR::deconvo_tme(eset = test.matrix, method = "estimate")
-        estimate$ID <- gsub("-", ".", estimate$ID)
-        resultList <- list("estimate" = estimate)
-        return(resultList)
-      }
-      if ("timer" == deconvolution_methods) {
-        timer <- IOBR::deconvo_tme(eset = test.matrix, method = "timer", group_list = rep("stad", dim(test.matrix)[2]))
-        resultList <- list("timer" = timer)
-        return(resultList)
-      }
-      if ("quantiseq" == deconvolution_methods) {
-        quantiseq <- IOBR::deconvo_tme(eset = test.matrix, tumor = TRUE, arrays = arrays, scale_mrna = TRUE, method = "quantiseq")
-        resultList <- list("quantiseq" = quantiseq)
-        return(resultList)
-      }
-      if ("ips" == deconvolution_methods) {
-        ips <- IOBR::deconvo_tme(eset = test.matrix, method = "ips", plot = FALSE)
-        resultList <- list("ips" = ips)
-        return(resultList)
-      }
     } else {
       print("Please provide the correct parameters for deconvolution method")
     }
@@ -123,14 +139,14 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
     tryCatch(
       {
         if (selected_columns == "none") {
-          resultList <- TME_deconvolution(test.matrix = test.matrix, deconvolution_methods = deconvolution_methods, arrays = F)
+          resultList <- TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = F)
         } else if (all(selected_columns %in% names(inputmatrix.list))) {
           # 将用户输入的名字拆分成一个字符向量
           if (names(inputmatrix.list)[i] %in% selected_columns) {
             # 确保用户输入的名字都存在
-            resultList <- TME_deconvolution(test.matrix = test.matrix, deconvolution_methods = deconvolution_methods, arrays = T)
+            resultList <- TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = T)
           } else {
-            resultList <- TME_deconvolution(test.matrix = test.matrix, deconvolution_methods = deconvolution_methods, arrays = F)
+            resultList <- TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = F)
           }
         } else {
           cat("Invalid dataset name(s). Please try again.")
@@ -142,9 +158,7 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
         resultList <- NULL
       },
       finally = {
-        resultList_1 <- list(resultList)
-        names(resultList_1) <- names(inputmatrix.list)[i]
-        tme_decon_list <- append(tme_decon_list, resultList_1)
+        tme_decon_list[[names(inputmatrix.list)[i]]] <- resultList
       }
     )
   }
