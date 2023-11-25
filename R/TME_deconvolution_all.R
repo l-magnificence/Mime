@@ -1,6 +1,6 @@
 #' Tumor microenvironment deconvolution using immunedeconv
 #'
-#' @param inputmatrix.list A gene expression dataframe after log2(x+1) scaled. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.
+#' @param inputmatrix.list A gene expression dataframe. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.
 #' @param deconvolution_method Deconvolution Methods in IOBR::deconvo_tme
 #' @param microarray_names Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
 #' @param column Only relevant if `gene_expression` is an ExpressionSet. Defines in which column
