@@ -13,6 +13,8 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
                                  seed = 5201314,
                                  train_data,
                                  cores_for_parallel = 12) {
+  library(dplyr)
+  
   cat("Data processing")
 
   list_train_vali_Data <- lapply(list_train_vali_Data, function(x) {
