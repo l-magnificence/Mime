@@ -52,6 +52,8 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
       inner_join(result_table, by = "method_cell_type") %>%
       select(-method_cell_type, -method_dataset)
   }
+  set_cibersort_binary(system.file("extdata", "CIBERSORT.R", package = "Mime"))
+  set_cibersort_mat(system.file("extdata", "LM22.txt", package = "Mime"))
   # Deconvolution by IOBR
   TME_deconvolution <- function(gene_expression,
                                 deconvolution_method = c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs"),

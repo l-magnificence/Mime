@@ -454,7 +454,7 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   # Available from: https://linkinghub.elsevier.com/retrieve/pii/S0092867418311784
 
   # source("/export3/zhangw/Project_Cross/Project_Mime/data/sig/IMPRES/ImmRes_source.R") ## 'ImmRes_OE.R' was downloaded from https://github.com/livnatje/ImmuneResistance
-  source(system.file("R/IMPRES/ImmRes_source.R", package = "Mime"))
+  source(system.file("extdata", "ImmRes_source.R", package = "Mime"))
 
   library(caret)
   # library(recipes,lib.loc = "/export/bioinfo-team/home/liuhw/R/x86_64-pc-linux-gnu-library/4.1")
