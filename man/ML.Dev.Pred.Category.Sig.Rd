@@ -2,8 +2,7 @@
 % Please edit documentation in R/ML.Dev.Pred.Category.Sig.R
 \name{ML.Dev.Pred.Category.Sig}
 \alias{ML.Dev.Pred.Category.Sig}
-\title{Developing the optimal predictive model for the dichotomous variables with machine learning algorithms
-A function can be used to develop the predictive model for dichotomous variables with seven machine learning algorithms.}
+\title{Developing the optimal predictive model for the dichotomous variables with machine learning algorithms}
 \usage{
 ML.Dev.Pred.Category.Sig(
   train_data,
@@ -31,6 +30,5 @@ ML.Dev.Pred.Category.Sig(
 A list containing the predictive model, the AUC, the ROC, and the candidate variables, all of which are developed by each single algorithm.
 }
 \description{
-Developing the optimal predictive model for the dichotomous variables with machine learning algorithms
 A function can be used to develop the predictive model for dichotomous variables with seven machine learning algorithms.
 }

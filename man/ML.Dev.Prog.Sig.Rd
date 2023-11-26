@@ -2,13 +2,14 @@
 % Please edit documentation in R/ML.Dev.Prog.Sig.R
 \name{ML.Dev.Prog.Sig}
 \alias{ML.Dev.Prog.Sig}
-\title{Constructing the optimal predictive model for the prognosis with machine learning algorithms
-A function, which can be used for developing a robust predictive model with elegant performance to predict the prognosis of the patients.}
+\title{Constructing the optimal predictive model for the prognosis with machine learning algorithms}
 \usage{
 ML.Dev.Prog.Sig(
   train_data,
   list_train_vali_Data,
   candidate_genes = NULL,
+  unicox.filter.for.candi = NULL,
+  unicox_p_cutoff = NULL,
   mode = NULL,
   single_ml = NULL,
   alpha_for_Enet = NULL,
@@ -25,6 +26,10 @@ ML.Dev.Prog.Sig(
 \item{list_train_vali_Data}{A list containing the training data and some validation data. The validation data has the same format as the training data.}
 
 \item{candidate_genes}{The character vector containing the variables you just want to input for developing the predictive model. These variables should be included in the colnames of the training data.}
+
+\item{unicox.filter.for.candi}{# T or F. wheather you use univariable cox regression to screen out the prognostic variables. The default is T.}
+
+\item{unicox_p_cutoff}{# The p value for the threshold of the Uni-Cox regression analysis, The default is 0.05}
 
 \item{mode}{Here we provide three modes including 'all', 'single', and 'double'. 'all' means using all ten algorithms and the combinations. 'single' means using only one of the ten algorithms. 'double' means using the combination with two algorithms.}
 
@@ -46,6 +51,5 @@ ML.Dev.Prog.Sig(
 A list containing the developed predictive model, the risk score of the model in each data, the C index of the model in each data, and the variables used to construct the model.
 }
 \description{
-Constructing the optimal predictive model for the prognosis with machine learning algorithms
 A function, which can be used for developing a robust predictive model with elegant performance to predict the prognosis of the patients.
 }

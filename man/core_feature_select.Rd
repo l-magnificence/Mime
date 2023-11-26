@@ -19,7 +19,7 @@ core_feature_select(object, sets = NULL, mb.ratio = NULL, col = NULL)
 a ggplot2 object
 }
 \description{
-Creates a upset plot of genes filtered by different methods
+Creates an upset plot of genes filtered by different methods
 }
 \examples{
 core_feature_select(res.feature.all)

@@ -30,7 +30,7 @@ roc_vis_category(
 a ggplot2 object
 }
 \description{
-Creates a plot of ROC among different methods when predicting response
+Creates a plot of ROC for specific method among different datasets when predicting response
 }
 \examples{
 methods = c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')

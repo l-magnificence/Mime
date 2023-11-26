@@ -2,8 +2,7 @@
 % Please edit documentation in R/ML.Corefeature.Prog.Screen.R
 \name{ML.Corefeature.Prog.Screen}
 \alias{ML.Corefeature.Prog.Screen}
-\title{Screening out the core variables for the prognosis with the machine learning algorithms
-A function can be used for screening out the core features from the given candidate genes with eight machine learning algorithms.}
+\title{Screening out the core variables for the prognosis with the machine learning algorithms}
 \usage{
 ML.Corefeature.Prog.Screen(
   InputMatrix,
@@ -31,6 +30,5 @@ ML.Corefeature.Prog.Screen(
 A data frame including the methods and the core genes screened by the corresponding algorithm.
 }
 \description{
-Screening out the core variables for the prognosis with the machine learning algorithms
 A function can be used for screening out the core features from the given candidate genes with eight machine learning algorithms.
 }

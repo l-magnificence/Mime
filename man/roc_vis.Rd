@@ -33,7 +33,7 @@ roc_vis(
 a ggplot2 object
 }
 \description{
-Creates a plot of ROC among different methods when predicting prognosis
+Creates a plot of ROC among different datasets when predicting prognosis
 }
 \examples{
 roc_vis(all.auc.1y,
