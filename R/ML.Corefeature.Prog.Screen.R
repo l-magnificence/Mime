@@ -768,7 +768,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
       message("--- 8.StepCox ---")
 
       for (direction in c("both", "backward", "forward")) {
-        fit <- step(coxph(Surv(OS.time, OS) ~ ., est_dd), direction = direction)
+        fit <- stats::step(coxph(Surv(OS.time, OS) ~ ., est_dd), direction = direction)
         rid <- names(coef(fit)) # 这里不用卡P值，迭代的结果就是可以纳入的基因
 
         result <- data.frame(
@@ -1067,7 +1067,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
         message("--- 8.StepCox ---")
 
         for (direction in c("both", "backward", "forward")) {
-          fit <- step(coxph(Surv(OS.time, OS) ~ ., est_dd), direction = direction)
+          fit <- stats::step(coxph(Surv(OS.time, OS) ~ ., est_dd), direction = direction)
           rid <- names(coef(fit)) #
 
           result <- data.frame(
@@ -1362,7 +1362,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
       message("--- 7.StepCox ---")
 
       for (direction in c("both", "backward", "forward")) {
-        fit <- step(coxph(Surv(OS.time, OS) ~ ., est_dd), direction = direction)
+        fit <- stats::step(coxph(Surv(OS.time, OS) ~ ., est_dd), direction = direction)
         rid <- names(coef(fit)) # 这里不用卡P值，迭代的结果就是可以纳入的基因
 
         result <- data.frame(
