@@ -65,7 +65,7 @@ list_train_vali_Data[["Dataset1"]][1:5,1:5]
 #>  TCGA.DU.8167.01  471.97707  0 14.90695 14.59776
 #>  TCGA.HT.7610.01 1709.53901  0 15.22784 14.62756
 ```
-The first column `ID` is the sample ID, second to third column `OS.time` and `OS` are the survival time and status of patients, other columns are the gene expression level. `Dataset1` is the training dataset, while other Datasets as validation.
+The first column `ID` is the sample ID, second to third column `OS.time` and `OS` are the survival time and status of patients, other columns are the gene expression level scaled with log2(x+1). `Dataset1` is the training dataset, while other Datasets as validation.
 ``` r
 load("./Example.ici.Rdata")
 list_train_vali_Data[["training"]][1:5,1:5]
@@ -77,7 +77,7 @@ list_train_vali_Data[["training"]][1:5,1:5]
 #>                      SAM5ffd7e4cd794   N  9.003710 3.908884 10.440559
 
 ```
-The first column `ID` is the sample ID, second column `Var` is the theraputic response of patients (`N`: No response; `Y`: response), other columns are the gene expression level. `training` is the training dataset, while other Datasets as validation.
+The first column `ID` is the sample ID, second column `Var` is the theraputic response of patients (`N`: No response; `Y`: response), other columns are the gene expression level scaled with log2(x+1). `training` is the training dataset, while other Datasets as validation.
 ``` r
 load("./genelist.Rdata")
 #> [1] "MYC"    "CTNNB1" "JAG2"   "NOTCH1" "DLL1"   "AXIN2"  "PSEN2"  "FZD1"   "NOTCH4" "LEF1"   "AXIN1"  "NKD1"   "WNT5B" 
