@@ -285,9 +285,10 @@ Compared AUC with other published models associated with immunotherapy response:
 ``` r
 auc.other.pre <- cal_auc_previous_sig(list_train_vali_Data = list_train_vali_Data,seed = 5201314,
                                       train_data = list_train_vali_Data$training,
-                                      cores_for_parallel = 32)
+                                      cores_for_parallel = 1)
 ```
 - `cal_auc_previous_sig()` will calculate the AUC based on the signatures from previous papers for immunotherapy response.
+- `cores_for_parallel` means the cores you can choose for parallel operation. If multi cores is error, please set `cores_for_parallel` as 1.
 
 Plot comparison results of specific model:
 ``` r
