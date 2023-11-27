@@ -289,7 +289,7 @@ auc.other.pre <- cal_auc_previous_sig(list_train_vali_Data = list_train_vali_Dat
 ```
 - `cal_auc_previous_sig()` will calculate the AUC based on the signatures from previous papers for immunotherapy response.
 
-Plot results:
+Plot comparison results of specific model:
 ``` r
 auc_category_comp(res.ici,
                   auc.other.pre,
