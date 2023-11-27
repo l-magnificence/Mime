@@ -73,6 +73,7 @@ Imports:
     mixtools,
     ROCR
 Suggests:
+    immunedeconv,
     IOBR,
     knitr,
     rmarkdown,
