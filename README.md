@@ -281,6 +281,23 @@ aplot::plot_list(gglist=plot_list,ncol=3)
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_roc_all.png)
 
+Compared AUC with other published models associated with immunotherapy response:
+``` r
+auc.other.pre <- cal_auc_previous_sig(list_train_vali_Data = list_train_vali_Data,seed = 5201314,
+                                      train_data = list_train_vali_Data$training,
+                                      cores_for_parallel = 32)
+```
+- `cal_auc_previous_sig()` will calculate the AUC based on the signatures from previous papers for immunotherapy response.
+
+Plot results:
+``` r
+auc_category_comp(res.ici,
+                  auc.other.pre,
+                  model_name="svmRadialWeights",
+                  dataset=names(list_train_vali_Data))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_auc_comp.png)
+
 ### 3. Core feature selection
 
 ``` r
