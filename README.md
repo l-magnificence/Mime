@@ -247,118 +247,15 @@ auc_comp(auc.glioma.lgg.gbm.1,
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/auc_comp_1y.png)
 
-### 2. Construct predicting models for response
-``` r
-load("./Example.ici.Rdata")
-load("./genelist.Rdata")
-res.ici <- ML.Dev.Pred.Category.Sig(train_data = list_train_vali_Data$training,
-                                      list_train_vali_Data = list_train_vali_Data,
-                                      candidate_genes = genelist,
-                                      methods = c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass'),
-                                      seed = 5201314,
-                                      cores_for_parallel = 60
-)
-```
-- `ML.Dev.Pred.Category.Sig()` develop the predictive model for the binary variables with machine learning algorithms.
-
-Plot AUC of different methods among different datasets:
-``` r
-auc_vis_category_all(res.ici,dataset = c("training","validation"),
-                     order= c("training","validation"))
-```
-![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_auc_all.png)
-
-Plot ROC of specific method among different datasets:
-``` r
-plot_list<-list()
-methods <- c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')
-for (i in methods) {
-  plot_list[[i]]<-roc_vis_category(res.ici,model_name = i,dataset = c("training","validation"),
-                                   order= c("training","validation"),
-                                   anno_position=c(0.4,0.25))
-}
-aplot::plot_list(gglist=plot_list,ncol=3)
-```
-![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_roc_all.png)
-
-Compared AUC with other published models associated with immunotherapy response:
-``` r
-auc.other.pre <- cal_auc_previous_sig(list_train_vali_Data = list_train_vali_Data,seed = 5201314,
-                                      train_data = list_train_vali_Data$training,
-                                      cores_for_parallel = 32)
-```
-- `cal_auc_previous_sig()` will calculate the AUC based on the signatures from previous papers for immunotherapy response.
-- `cores_for_parallel` means the cores you can choose for parallel operation. If multi-cores condition is error, please set `cores_for_parallel` as 1.
-
-Plot comparison results of specific model:
-``` r
-auc_category_comp(res.ici,
-                  auc.other.pre,
-                  model_name="svmRadialWeights",
-                  dataset=names(list_train_vali_Data))
-```
-![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_auc_comp.png)
-
-### 3. Core feature selection
-
-``` r
-load("./Example.cohort.Rdata")
-load("./genelist.Rdata")
-res.feature.all <- ML.Corefeature.Prog.Screen(InputMatrix = list_train_vali_Data$Dataset1,
-                                            candidate_genes = genelist,
-                                            mode = "all",nodesize =5,seed = 5201314 )
-```
-- `ML.Corefeature.Prog.Screen()` provides three modes including `all`, `single`, and `all_without_SVM`. `all` mode means using all eight methods for selecting. `single` mode means using only one method for running. Since SVM takes too long time, we define other seven methods used for selecting as `all_without_SVM` mode.
-- The output genes are closely associated with patient outcome and higher frequence of screening means more critical.
-
-Upset plot of genes filtered by different methods:
-``` r
-core_feature_select(res.feature.all)
-```
-![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect.png)
-
-Plot the rank of genes filtered by different methods:
-``` r
-core_feature_rank(res.feature.all, top=20)
-```
-![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect_rank.png)
-
-Here, we randomly select top two genes to analyze their correlation:
-``` r
-dataset_col<-c("#3182BDFF","#E6550DFF")
-corplot <- list()
-for (i in c(1:2)) {
-  print(corplot[[i]]<-cor_plot(list_train_vali_Data[[i]],
-                               dataset=names(list_train_vali_Data)[i],
-                               color = dataset_col[i],
-                               feature1="PSEN2",
-                               feature2="WNT5B",
-                               method="pearson"))
-}
-aplot::plot_list(gglist=corplot,ncol=2)
-```
-![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_cor.png)
-
-Plot survival curve of patients according to median expression level of specific gene among different datasets:
-``` r
-survplot <- vector("list",2) 
-for (i in c(1:2)) {
-  print(survplot[[i]]<-core_feature_sur("PSEN2", 
-                                        InputMatrix=list_train_vali_Data[[i]],
-                                        dataset = names(list_train_vali_Data)[i],
-                                        #color=c("blue","green"),
-                                        median.line = "hv",
-                                        cutoff = 0.5,
-                                        conf.int = T,
-                                        xlab="Day",pval.coord=c(1000,0.9)))
-}
-aplot::plot_list(gglist=survplot,ncol=2)
-```
-![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_km.png)
-
-### 4. Downstream analysis
-
+#### 1.5 Immune infiltration analysis
 After completing the risk grouping, users can perform downstream analysis on the grouped data. Here, we combine Mime with the R package immunedeconv to assist users in quickly previewing immune infiltration. If users require a more precise immune infiltration analysis, they can fine-tune the parameters themselves.
+``` r
+devo <- TME_deconvolution_all(list_train_vali_Data)
+```
+- If you want to use this function, you should install package immunedeconv ahead.
+- `TME_deconvolution_all()` includes 10 deconvolution methods ("quantiseq", "xcell", "epic", "abis", "mcp_counter", "estimate", "cibersort", "cibersort_abs", "timer", "consensus_tme") from immunedeconv::deconvolution_methods. By default, deconvolution methods are set as ("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs").
+
+Show the results:
 ``` r
 library(RColorBrewer)
 library(circlize)
@@ -366,9 +263,6 @@ library(gplots)
 library(viridis)
 library(tidyverse)
 library(dplyr)
-
-#running Mime::TME_deconvolution_all
-devo <- Mime::TME_deconvolution_all(list_train_vali_Data)
 
 #select dataset1 for analysis
 risk_all <- res$riskscore$`StepCox[backward] + plsRcox`
@@ -485,9 +379,116 @@ draw(hm1 + hm2 + hm3 + hm4 + hm5 + hm6,
      heatmap_legend_side = "bottom",
      annotation_legend_side = "bottom")
 ```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/immune_heatmap_Mime_dataset1.png)
 
+### 2. Construct predicting models for response
+``` r
+load("./Example.ici.Rdata")
+load("./genelist.Rdata")
+res.ici <- ML.Dev.Pred.Category.Sig(train_data = list_train_vali_Data$training,
+                                      list_train_vali_Data = list_train_vali_Data,
+                                      candidate_genes = genelist,
+                                      methods = c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass'),
+                                      seed = 5201314,
+                                      cores_for_parallel = 60
+)
+```
+- `ML.Dev.Pred.Category.Sig()` develop the predictive model for the binary variables with machine learning algorithms.
 
+Plot AUC of different methods among different datasets:
+``` r
+auc_vis_category_all(res.ici,dataset = c("training","validation"),
+                     order= c("training","validation"))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_auc_all.png)
 
+Plot ROC of specific method among different datasets:
+``` r
+plot_list<-list()
+methods <- c('nb','svmRadialWeights','rf','kknn','adaboost','LogitBoost','cancerclass')
+for (i in methods) {
+  plot_list[[i]]<-roc_vis_category(res.ici,model_name = i,dataset = c("training","validation"),
+                                   order= c("training","validation"),
+                                   anno_position=c(0.4,0.25))
+}
+aplot::plot_list(gglist=plot_list,ncol=3)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_roc_all.png)
+
+Compared AUC with other published models associated with immunotherapy response:
+``` r
+auc.other.pre <- cal_auc_previous_sig(list_train_vali_Data = list_train_vali_Data,seed = 5201314,
+                                      train_data = list_train_vali_Data$training,
+                                      cores_for_parallel = 32)
+```
+- `cal_auc_previous_sig()` will calculate the AUC based on the signatures from previous papers for immunotherapy response.
+- `cores_for_parallel` means the cores you can choose for parallel operation. If multi-cores condition is error, please set `cores_for_parallel` as 1.
+
+Plot comparison results of specific model:
+``` r
+auc_category_comp(res.ici,
+                  auc.other.pre,
+                  model_name="svmRadialWeights",
+                  dataset=names(list_train_vali_Data))
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/ICI_response_auc_comp.png)
+
+### 3. Core feature selection
+
+``` r
+load("./Example.cohort.Rdata")
+load("./genelist.Rdata")
+res.feature.all <- ML.Corefeature.Prog.Screen(InputMatrix = list_train_vali_Data$Dataset1,
+                                            candidate_genes = genelist,
+                                            mode = "all",nodesize =5,seed = 5201314 )
+```
+- `ML.Corefeature.Prog.Screen()` provides three modes including `all`, `single`, and `all_without_SVM`. `all` mode means using all eight methods for selecting. `single` mode means using only one method for running. Since SVM takes too long time, we define other seven methods used for selecting as `all_without_SVM` mode.
+- The output genes are closely associated with patient outcome and higher frequence of screening means more critical.
+
+Upset plot of genes filtered by different methods:
+``` r
+core_feature_select(res.feature.all)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect.png)
+
+Plot the rank of genes filtered by different methods:
+``` r
+core_feature_rank(res.feature.all, top=20)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/core_feature_intersect_rank.png)
+
+Here, we randomly select top two genes to analyze their correlation:
+``` r
+dataset_col<-c("#3182BDFF","#E6550DFF")
+corplot <- list()
+for (i in c(1:2)) {
+  print(corplot[[i]]<-cor_plot(list_train_vali_Data[[i]],
+                               dataset=names(list_train_vali_Data)[i],
+                               color = dataset_col[i],
+                               feature1="PSEN2",
+                               feature2="WNT5B",
+                               method="pearson"))
+}
+aplot::plot_list(gglist=corplot,ncol=2)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_cor.png)
+
+Plot survival curve of patients according to median expression level of specific gene among different datasets:
+``` r
+survplot <- vector("list",2) 
+for (i in c(1:2)) {
+  print(survplot[[i]]<-core_feature_sur("PSEN2", 
+                                        InputMatrix=list_train_vali_Data[[i]],
+                                        dataset = names(list_train_vali_Data)[i],
+                                        #color=c("blue","green"),
+                                        median.line = "hv",
+                                        cutoff = 0.5,
+                                        conf.int = T,
+                                        xlab="Day",pval.coord=c(1000,0.9)))
+}
+aplot::plot_list(gglist=survplot,ncol=2)
+```
+![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/gene_km.png)
 
 ## Citations
 If you use **_Mime_** in the study, please cite the following publication:
