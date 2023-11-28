@@ -252,7 +252,7 @@ After completing the risk grouping, users can perform downstream analysis on the
 ``` r
 devo <- TME_deconvolution_all(list_train_vali_Data)
 ```
-- If you want to use this function, you should install package immunedeconv ahead.
+- If you want to use this function, you should install package `immunedeconv` ahead.
 - `TME_deconvolution_all()` includes 10 deconvolution methods ("quantiseq", "xcell", "epic", "abis", "mcp_counter", "estimate", "cibersort", "cibersort_abs", "timer", "consensus_tme") from `immunedeconv::deconvolution_methods`. By default, deconvolution methods are set as ("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs").
 
 Show the results:
