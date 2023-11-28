@@ -253,131 +253,14 @@ After completing the risk grouping, users can perform downstream analysis on the
 devo <- TME_deconvolution_all(list_train_vali_Data)
 ```
 - If you want to use this function, you should install package immunedeconv ahead.
-- `TME_deconvolution_all()` includes 10 deconvolution methods ("quantiseq", "xcell", "epic", "abis", "mcp_counter", "estimate", "cibersort", "cibersort_abs", "timer", "consensus_tme") from immunedeconv::deconvolution_methods. By default, deconvolution methods are set as ("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs").
+- `TME_deconvolution_all()` includes 10 deconvolution methods ("quantiseq", "xcell", "epic", "abis", "mcp_counter", "estimate", "cibersort", "cibersort_abs", "timer", "consensus_tme") from `immunedeconv::deconvolution_methods`. By default, deconvolution methods are set as ("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs").
 
 Show the results:
 ``` r
-library(RColorBrewer)
-library(circlize)
-library(gplots)
-library(viridis)
-library(tidyverse)
-library(dplyr)
-
-#select dataset1 for analysis
-risk_all <- res$riskscore$`StepCox[backward] + plsRcox`
-risk <- risk_all$Dataset1
-hmdat <- devo$Dataset1$tme_combine
-
-risk$risk <- ifelse(risk$RS > median(risk$RS),"high","low")
-hmdat <- lapply(hmdat, function(tibble_i) {
-  tibble_i <-  tibble_i |> as.data.frame() |> tibble::column_to_rownames("cell_type")
-  return(tibble_i)
-})
-
-#plot heatmap
-library(ComplexHeatmap)
-source("./pheatmap_translate.R")
-ht_opt$message = FALSE
-
-samorder <- risk[order(risk$RS),]$ID
-annCol <- data.frame(RiskScore = scale(risk$RS),
-                     RiskType = risk$risk,
-                     row.names = risk$ID,
-                     stringsAsFactors = F)
-
-
-annColors <- list("RiskScore" = viridis::rocket(64),
-                  "RiskType" = c("high" = "#FDD0A2FF","low" = "#C7E9C0FF"))
-
-
-hm1 <- pheatmap(mat = t(as.matrix(hmdat$xcell[,samorder])),
-                border_color = NA,
-                #color = bluered(64),
-                cluster_rows = F,
-                cluster_cols = F,
-                show_rownames = F,
-                show_colnames = T,
-                annotation_row = annCol[samorder,,drop = F],
-                annotation_colors = annColors,
-                cellwidth = 10,
-                cellheight = 0.8,
-                gaps_row = table(annCol$RiskType)[2],
-                name = "xCell")
-
-hm2 <- pheatmap(mat = t(as.matrix(hmdat$cibersort[,samorder])),
-                border_color = NA,
-                color = greenred(64),
-                cluster_rows = F,
-                cluster_cols = F,
-                show_rownames = F,
-                show_colnames = T,
-                # annotation_row = annCol[samorder,,drop = F],
-                # annotation_colors = annColors,
-                cellwidth = 10,
-                cellheight = 0.8,
-                gaps_row = table(annCol$RiskType)[2],
-                name = "CIBERSORT")
-
-hm3 <- pheatmap(mat = t(as.matrix(hmdat$epic[,samorder])),
-                border_color = NA,
-                color = turbo(64),
-                cluster_rows = F,
-                cluster_cols = F,
-                show_rownames = F,
-                show_colnames = T,
-                # annotation_row = annCol[samorder,,drop = F],
-                # annotation_colors = annColors,
-                cellwidth = 10,
-                cellheight = 0.8,
-                gaps_row = table(annCol$RiskType)[2],
-                name = "Epic")
-
-hm4 <- pheatmap(mat = t(as.matrix(hmdat$abis[,samorder])),
-                border_color = NA,
-                color = bluered(64),
-                cluster_rows = F,
-                cluster_cols = F,
-                show_rownames = F,
-                show_colnames = T,
-                # annotation_row = annCol[samorder,,drop = F],
-                # annotation_colors = annColors,
-                cellwidth = 10,
-                cellheight = 0.8,
-                gaps_row = table(annCol$RiskType)[2],
-                name = "abis")
-
-hm5 <- pheatmap(mat = t(as.matrix(hmdat$estimate[,samorder])),
-                border_color = NA,
-                color = inferno(64),
-                cluster_rows = F,
-                cluster_cols = F,
-                show_rownames = F,
-                show_colnames = T,
-                # annotation_row = annCol[samorder,,drop = F],
-                # annotation_colors = annColors,
-                cellwidth = 10,
-                cellheight = 0.8,
-                gaps_row = table(annCol$RiskType)[2],
-                name = "ESTIMATE")
-
-hm6 <- pheatmap(mat = t(as.matrix(hmdat$cibersort_abs[,samorder])),
-                border_color = NA,
-                color = viridis(64),
-                cluster_rows = F,
-                cluster_cols = F,
-                show_rownames = F,
-                show_colnames = T,
-                # annotation_row = annCol[samorder,,drop = F],
-                # annotation_colors = annColors,
-                cellwidth = 10,
-                cellheight = 0.8,
-                gaps_row = table(annCol$RiskType)[2],
-                name = "CIBERSORT_abs")
-
-draw(hm1 + hm2 + hm3 + hm4 + hm5 + hm6,
-     heatmap_legend_side = "bottom",
-     annotation_legend_side = "bottom")
+immuno_heatmap(res,
+               devo,
+               model_name="StepCox[backward] + plsRcox",
+               dataset="Dataset1")
 ```
 ![Screenshot](https://github.com/l-magnificence/Mime/blob/main/fig/immune_heatmap_Mime_dataset1.png)
 
