@@ -24,6 +24,8 @@ BugReports: https://github.com/l-magnificence/Mime/issues
 Depends: 
     R (>= 4.1.0)
 Imports:
+    ComplexHeatmap,
+    viridis,
     kknn,
     Matrix,
     BART,
