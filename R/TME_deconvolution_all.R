@@ -1,12 +1,13 @@
 #' Tumor microenvironment deconvolution using immunedeconv
 #'
 #' @param inputmatrix.list A gene expression dataframe. The first three of the column names are, in order, ID,OS.time, OS. Columns starting with the fourth are gene symbols. OS.time is a numeric variable in days. OS is a numeric variable containing 0, 1. 0: Alive, 1: Dead.
-#' @param deconvolution_method Deconvolution Methods in IOBR::deconvo_tme
+#' @param deconvolution_method Deconvolution Methods in immunedeconv::deconvolution_methods
 #' @param microarray_names Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
 #' @param column Only relevant if `gene_expression` is an ExpressionSet. Defines in which column
 #'   of fData the HGNC symbol can be found.
 #' @param indications a character vector with one indication per
-#'   sample for TIMER. Argument is ignored for all other methods.
+#'   sample for TIMER and ConsensusTME(immunedeconv::timer_available_cancers).
+#'   Argument is ignored for all other methods.
 #' @param tumor use a signature matrix/procedure optimized for tumor samples,
 #'   if supported by the method. Currently affects EPIC and
 #' @param rmgenes a character vector of gene symbols. Exclude these genes from the analysis.
@@ -25,7 +26,7 @@
 #' @examples
 #' test.devo <- TME_deconvolution_all(list_train_vali_Data)
 TME_deconvolution_all <- function(inputmatrix.list, # A list contain the dataframes (colnames:ID,OS.time,OS,other genes), log2(x+1)， OS.time(day), OS(0/1)
-                                  deconvolution_method = c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs"), # Deconvolution Methods in c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs")
+                                  deconvolution_method = c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs"), # Deconvolution Methods in c("quantiseq", "xcell", "epic", "abis", "mcp_counter", "estimate", "cibersort", "cibersort_abs", "timer", "consensus_tme")
                                   microarray_names = "none", # Please tell us which datasets are microarray, use the names of elements in inputmatrix.list. such as c("CGGA.array", "GSE108474", "GSE16011", "GSE43289", "GSE7696") if none, enter "none".
                                   indications = NULL,
                                   tumor = TRUE,
@@ -54,7 +55,7 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
   }
   set_cibersort_binary(system.file("extdata", "CIBERSORT.R", package = "Mime"))
   set_cibersort_mat(system.file("extdata", "LM22.txt", package = "Mime"))
-  # Deconvolution by IOBR
+  # Deconvolution by immunedeconv
   TME_deconvolution <- function(gene_expression,
                                 deconvolution_method = c("xcell", "epic", "abis", "estimate", "cibersort", "cibersort_abs"),
                                 tumor = TRUE,
@@ -63,12 +64,7 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
                                 expected_cell_types = NULL,
                                 ...) {
     deconvolution_methods <- c(
-      "EPIC" = "epic",
-      "xCell" = "xcell",
-      "CIBERSORT" = "cibersort",
-      "CIBERSORT (abs.)" = "cibersort_abs",
-      "ABIS" = "abis",
-      "ESTIMATE" = "estimate"
+      "quantiseq", "xcell", "epic", "abis", "mcp_counter", "estimate", "cibersort", "cibersort_abs", "timer", "consensus_tme"
     )
 
     if (all(deconvolution_method %in% deconvolution_methods)) {
@@ -99,7 +95,13 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
             arrays = arrays, ...
           ),
           abis = immunedeconv::deconvolute_abis(gene_expression, arrays = arrays),
-          estimate = immunedeconv::deconvolute_estimate(gene_expression)
+          estimate = immunedeconv::deconvolute_estimate(gene_expression),
+          timer = immunedeconv::deconvolute(gene_expression, "timer",
+                                            indications=indications),
+          consensus_tme = immunedeconv::deconvolute(gene_expression, "consensus_tme",
+                                                    indications=indications),
+          quantiseq = immunedeconv::deconvolute(gene_expression, "quantiseq"),
+          mcp_counter = immunedeconv::deconvolute(gene_expression, "mcp_counter")
         )
 
         # convert to tibble and annotate unified cell_type names
