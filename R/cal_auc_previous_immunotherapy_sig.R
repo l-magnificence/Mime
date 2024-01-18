@@ -718,14 +718,14 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   sig <- TRS.Sig
   cat("1.12 TRS.Sig")
 
-  gmt <- Mime::TRS.Sig.gmt
+  # gmt <- Mime::TRS.Sig.gmt
   all(duplicated(names(gmt))) # no duplicated ids
 
   getTRS.Sig <- lapply(list_train_vali_Data, function(g) {
     new <- g
     colnames(new) <- gsub("\\.", "-", colnames(new))
     expr <- as.matrix(t(new[, -c(1:2)]))
-    gsva <- gsva(expr, gmt, method = "gsva", parallel.sz = cores_for_parallel)
+    gsva <- gsva(expr, list(TRS.Sig=TRS.Sig), method = "gsva", parallel.sz = cores_for_parallel)
     score <- as.numeric(gsva)
     roc <- ROCit::rocit(
       score = score,
