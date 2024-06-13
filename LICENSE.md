@@ -1,6 +1,6 @@
 # MIT License
 
-Copyright (c) 2023 Wei Zhang,Hongwei Liu,Yihao Zhang
+Copyright (c) 2023 Hongwei Liu, Wei Zhang, Yihao Zhang
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
