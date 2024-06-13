@@ -325,7 +325,7 @@ res.feature.all <- ML.Corefeature.Prog.Screen(InputMatrix = list_train_vali_Data
                                             candidate_genes = genelist,
                                             mode = "all",nodesize =5,seed = 5201314 )
 ```
-- `ML.Corefeature.Prog.Screen()` provides three modes including `all`, `single`, and `all_without_SVM`. `all` mode means using all eight methods for selecting. `single` mode means using only one method for running. If you use `single` mode, `single_ml` should be specified among eight methods. Since SVM takes too long time, we define other seven methods used for selecting as `all_without_SVM` mode.
+- `ML.Corefeature.Prog.Screen()` provides three modes including `all`, `single`, and `all_without_SVM`. `all` mode means using all eight methods ("RSF", "Enet", "Boruta", "Xgboost", "SVM-REF", "Lasso", "CoxBoost', "StepCox") for selecting. `single` mode means using only one method for running. If you use `single` mode, `single_ml` should be specified among eight methods. Since SVM takes too long time, we define other seven methods used for selecting as `all_without_SVM` mode.
 - The output genes are closely associated with patient outcome and higher frequence of screening means more critical.
 
 Upset plot of genes filtered by different methods:
