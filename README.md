@@ -375,7 +375,7 @@ aplot::plot_list(gglist=survplot,ncol=2)
 
 ## Citations
 If you use **_Mime_** in the study, please cite the following publication:
-- Liu H, Zhang W, Zhang Y, et al. Mime: A flexible machine-learning framework to construct and visualize models for clinical characteristics prediction and feature selection. bioRxiv. 2023.
+- Liu H, Zhang W, Zhang Y, et al. Mime: A flexible machine-learning framework to construct and visualize models for clinical characteristics prediction and feature selection. Comput Struct Biotechnol J. 2024.
 
 ## Contact
 Any technical question please list in Issues section.
