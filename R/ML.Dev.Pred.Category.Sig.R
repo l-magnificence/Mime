@@ -270,10 +270,11 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
   ##### parameters check #####
 
 
-  if (identical(colnames(train_data)[1:2], c("ID", "Var")) &
-    identical(common_feature[1:2], c("ID", "Var")) &
-    unique(train_data$Var) %in% c("Y", "N") &
-    length(candidate_genes) > 1 &
+  if (
+    #identical(colnames(train_data)[1:2], c("ID", "Var")) &
+    #identical(common_feature[1:2], c("ID", "Var")) &
+    #unique(train_data$Var) %in% c("Y", "N") &
+    #length(candidate_genes) > 1 &
     all(is.element(methods, c("nb", "svmRadialWeights", "rf", "kknn", "adaboost", "LogitBoost", "cancerclass")))
 
 
