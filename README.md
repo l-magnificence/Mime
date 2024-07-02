@@ -47,7 +47,7 @@ if (!requireNamespace("fastAdaboost", quietly = TRUE))
 if (!requireNamespace("Mime", quietly = TRUE))
   devtools::install_github("l-magnificence/Mime")
   
-library(Mime)
+library(Mime1)
 ```
 
 ## Quick Start
