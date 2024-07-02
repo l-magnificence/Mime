@@ -22,7 +22,7 @@ cal_cindex_pre.prog.sig <- function(use_your_own_collected_sig, # 是否使用�
   if (use_your_own_collected_sig) {
     sig.input <- collected_sig_table
   } else {
-    pre.prog.sig <- Mime::pre.prog.sig
+    pre.prog.sig <- Mime1::pre.prog.sig
 
     if (all(type.sig %in% names(pre.prog.sig))) {
       if (length(type.sig) == 1) {
