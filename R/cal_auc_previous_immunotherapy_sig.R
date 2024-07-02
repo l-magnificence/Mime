@@ -70,9 +70,9 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   PDL1.Sig <- c("PDL1", "PDCD1")
   # LRRC15.CAF.Sig
   LRRC15.CAF.Sig <- c("MMP11", "COL11A1", "C1QTNF3", "CTHRC1", "COL12A1", "COL10A1", "COL5A2", "GJB2", "THBS2", "AEBP1", "MFAP2", "LRRC15", "PLAU", "ITGA11") # Alias for 'PRLHR' are:'GR3','GPR10','PrRPR'
-  ImmmunCells.Sig <- Mime::ImmmunCells.Sig
-  TcellExc.Sig <- Mime::TcellExc.Sig
-  exc.sig <- Mime::exc.sig
+  ImmmunCells.Sig <- Mime1::ImmmunCells.Sig
+  TcellExc.Sig <- Mime1::TcellExc.Sig
+  exc.sig <- Mime1::exc.sig
 
   ls_sig <- list(
     "ImmmunCells.Sig" = ImmmunCells.Sig,
@@ -243,7 +243,7 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   sig <- NLRP3.Sig
   sig <- gsub("-", ".", sig)
 
-  gmt <- Mime::NLRP3.Sig.gmt
+  gmt <- Mime1::NLRP3.Sig.gmt
   all(duplicated(names(gmt))) # no duplicated ids
 
   AUC_NLRP3.Sig <- lapply(list_train_vali_Data, function(g) {
@@ -454,7 +454,7 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   # Available from: https://linkinghub.elsevier.com/retrieve/pii/S0092867418311784
 
   # source("/export3/zhangw/Project_Cross/Project_Mime/data/sig/IMPRES/ImmRes_source.R") ## 'ImmRes_OE.R' was downloaded from https://github.com/livnatje/ImmuneResistance
-  source(system.file("extdata", "ImmRes_source.R", package = "Mime"))
+  source(system.file("extdata", "ImmRes_source.R", package = "Mime1"))
 
   library(caret)
   # library(recipes,lib.loc = "/export/bioinfo-team/home/liuhw/R/x86_64-pc-linux-gnu-library/4.1")
@@ -556,7 +556,7 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   cat("1.10 IMPRES.Sig")
 
 
-  gp <- Mime::gp_IMPRES
+  gp <- Mime1::gp_IMPRES
 
   gp <- as.data.frame(gp)
   gp1 <- gp
@@ -673,7 +673,7 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   library(GSVA)
   library(GSEABase)
 
-  gmt <- Mime::IPRES_gmt
+  gmt <- Mime1::IPRES_gmt
   all(duplicated(names(gmt))) # no duplicated ids
 
 
@@ -718,7 +718,7 @@ cal_auc_previous_sig <- function(list_train_vali_Data, # lsit of the cohort, 第
   sig <- TRS.Sig
   cat("1.12 TRS.Sig")
 
-  # gmt <- Mime::TRS.Sig.gmt
+  # gmt <- Mime1::TRS.Sig.gmt
   all(duplicated(names(gmt))) # no duplicated ids
 
   getTRS.Sig <- lapply(list_train_vali_Data, function(g) {
