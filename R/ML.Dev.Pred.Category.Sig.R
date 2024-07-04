@@ -186,7 +186,7 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
 
     ls_model <- res.by.model.Dev
     auc <- lapply(ls_model, function(model.tune) {
-      if (class(model.tune) == "predictor") {
+      if (model.tune@method == "welch.test") {
         pData <- data.frame(class = validation$Var, sample = rownames(validation), row.names = rownames(validation))
         phenoData <- new("AnnotatedDataFrame", data = pData)
         Sig.Exp <- t(validation[, -1])
