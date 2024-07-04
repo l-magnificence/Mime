@@ -179,14 +179,16 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
 
   cal.model.auc <- function(res.by.model.Dev, cohort.for.cal, sig) {
     library(dplyr)
-
+    
     rownames(cohort.for.cal) <- cohort.for.cal$ID
     validation <- cohort.for.cal[, colnames(cohort.for.cal) %in% c("Var", sig)]
     validation$Var <- factor(validation$Var, levels = c("N", "Y"))
-
+    
     ls_model <- res.by.model.Dev
-    auc <- lapply(ls_model, function(model.tune) {
-      if (model.tune@method == "welch.test") {
+    models <- names(ls_model)
+    auc <- lapply(1:length(models), function(i) {
+      if (models[i] == "cancerclass") {
+        model.tune <- ls_model[[i]]
         pData <- data.frame(class = validation$Var, sample = rownames(validation), row.names = rownames(validation))
         phenoData <- new("AnnotatedDataFrame", data = pData)
         Sig.Exp <- t(validation[, -1])
@@ -199,17 +201,18 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
         roc_result <- coords(roc, "best")
         auc <- data.frame(ROC = as.numeric(roc$auc), Sens = roc_result$sensitivity[1], Spec = roc_result$specificity[1])
       } else {
+        model.tune <- ls_model[[i]]
         prob <- predict(model.tune, validation[, -1], type = "prob")
         pre <- predict(model.tune, validation[, -1])
         test_set <- data.frame(obs = validation$Var, N = prob[, "N"], Y = prob[, "Y"], pred = pre)
         auc <- twoClassSummary(test_set, lev = levels(test_set$obs))
       }
-
+      
       return(auc)
     }) %>% base::do.call(rbind, .)
-
+    
     rownames(auc) <- names(ls_model)
-
+    
     return(auc)
   }
 
