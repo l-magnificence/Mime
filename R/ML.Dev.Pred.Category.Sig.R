@@ -262,6 +262,9 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
 
 
   common_feature <- c("ID", "Var", candidate_genes)
+  list_train_vali_Data <- lapply(list_train_vali_Data,function(x){
+    colnames(x) = gsub('-','.',colnames(x))
+    return(x)})
   colnames(train_data) <- gsub("-", ".", colnames(train_data))
   candidate_genes <- gsub("-", ".", candidate_genes)
 
