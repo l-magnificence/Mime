@@ -33,7 +33,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            double_ml1 = NULL,#c('RSF', "StepCox","CoxBoost","Lasso")
                            double_ml2 = NULL,# c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso")
                            nodesize = NULL, # reference 5-10
-                           seed = NULL # 5201314
+                           seed = NULL, # 5201314
                            cores_for_parallel = NULL  #cores for gbm
                            ){
   
