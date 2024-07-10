@@ -34,12 +34,19 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            double_ml2 = NULL,# c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso")
                            nodesize = NULL, # reference 5-10
                            seed = NULL # 5201314
+                           cores_for_parallel = NULL  #cores for gbm
                            ){
   
   if (is.null(alpha_for_Enet) == T){
     alpha_for_Enet<-0.1 ## default 0.35
   } else {
     alpha_for_Enet<-alpha_for_Enet
+  }
+
+  if (is.null(cores_for_parallel) == T){
+    cores_for_parallel<-6 ## default 6
+  } else {
+    cores_for_parallel<-cores_for_parallel
   }
 
   
@@ -451,7 +458,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10, n.cores = 6)
+                 cv.folds = 10, n.cores = cores_for_parallel)
 
       # find index for number trees with minimum CV error
       best <- which.min(fit$cv.error)
@@ -461,7 +468,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10,n.cores = 8)
+                 cv.folds = 10,n.cores = cores_for_parallel)
       rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
       cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
@@ -873,7 +880,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 6)
+                     cv.folds = 10,n.cores = cores_for_parallel)
           # find index for number trees with minimum CV error
           best <- which.min(fit$cv.error)
 
@@ -884,7 +891,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 8)
+                     cv.folds = 10,n.cores = cores_for_parallel)
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
           cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
@@ -1109,7 +1116,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 6)
+                     cv.folds = 10,n.cores = cores_for_parallel)
           # find index for number trees with minimum CV error
           best <- which.min(fit$cv.error)
 
@@ -1120,7 +1127,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 8)
+                     cv.folds = 10,n.cores = cores_for_parallel)
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
           cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
@@ -1344,7 +1351,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 6)
+                     cv.folds = 10,n.cores = cores_for_parallel)
           # find index for number trees with minimum CV error
           best <- which.min(fit$cv.error)
 
@@ -1355,7 +1362,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 8)
+                     cv.folds = 10,n.cores = cores_for_parallel)
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
           cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
@@ -1605,7 +1612,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10, n.cores = 6)
+                 cv.folds = 10, n.cores = cores_for_parallel)
       # find index for number trees with minimum CV error
       best <- which.min(fit$cv.error)
       set.seed(seed)
@@ -1614,7 +1621,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10,n.cores = 8)
+                 cv.folds = 10,n.cores = cores_for_parallel)
       rs <- lapply(val_dd_list2,function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
       cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
@@ -1963,7 +1970,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10, n.cores = 6)
+                 cv.folds = 10, n.cores = cores_for_parallel)
       # find index for number trees with minimum CV error
       best <- which.min(fit$cv.error)
       set.seed(seed)
@@ -1972,7 +1979,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10, n.cores = 8)
+                 cv.folds = 10, n.cores = cores_for_parallel)
       rs <- lapply(val_dd_list,function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
       cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
@@ -2120,7 +2127,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10, n.cores = 6)
+                 cv.folds = 10, n.cores = cores_for_parallel)
       # find index for number trees with minimum CV error
       best <- which.min(fit$cv.error)
       set.seed(seed)
@@ -2129,7 +2136,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  interaction.depth = 3,
                  n.minobsinnode = 10,
                  shrinkage = 0.001,
-                 cv.folds = 10, n.cores = 8)
+                 cv.folds = 10, n.cores = cores_for_parallel)
       rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
       cc <- data.frame(Cindex = sapply(rs,function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])}))%>%
         rownames_to_column('ID')
@@ -2577,7 +2584,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    interaction.depth = 3,
                    n.minobsinnode = 10,
                    shrinkage = 0.001,
-                   cv.folds = 10, n.cores = 6)
+                   cv.folds = 10, n.cores = cores_for_parallel)
         # find index for number trees with minimum CV error
         best <- which.min(fit$cv.error)
         set.seed(seed)
@@ -2586,7 +2593,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    interaction.depth = 3,
                    n.minobsinnode = 10,
                    shrinkage = 0.001,
-                   cv.folds = 10, n.cores = 8)
+                   cv.folds = 10, n.cores = cores_for_parallel)
 
         rs <- lapply(val_dd_list,function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
@@ -2993,7 +3000,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        interaction.depth = 3,
                        n.minobsinnode = 10,
                        shrinkage = 0.001,
-                       cv.folds = 10, n.cores = 6)
+                       cv.folds = 10, n.cores = cores_for_parallel)
 
             # find index for number trees with minimum CV error
             best <- which.min(fit$cv.error)
@@ -3003,7 +3010,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        interaction.depth = 3,
                        n.minobsinnode = 10,
                        shrinkage = 0.001,
-                       cv.folds = 10,n.cores = 8)
+                       cv.folds = 10,n.cores = cores_for_parallel)
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
             cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
@@ -3419,7 +3426,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 6)
+                     cv.folds = 10,n.cores = cores_for_parallel)
           # find index for number trees with minimum CV error
           best <- which.min(fit$cv.error)
           set.seed(seed)
@@ -3428,7 +3435,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      interaction.depth = 3,
                      n.minobsinnode = 10,
                      shrinkage = 0.001,
-                     cv.folds = 10,n.cores = 8)
+                     cv.folds = 10,n.cores = cores_for_parallel)
 
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
           cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
@@ -3644,7 +3651,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        interaction.depth = 3,
                        n.minobsinnode = 10,
                        shrinkage = 0.001,
-                       cv.folds = 10, n.cores = 6)
+                       cv.folds = 10, n.cores = cores_for_parallel)
             # find index for number trees with minimum CV error
             best <- which.min(fit$cv.error)
             set.seed(seed)
@@ -3653,7 +3660,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        interaction.depth = 3,
                        n.minobsinnode = 10,
                        shrinkage = 0.001,
-                       cv.folds = 10,n.cores = 8)
+                       cv.folds = 10,n.cores = cores_for_parallel)
             rs <- lapply(val_dd_list2,function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
             cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
@@ -4049,7 +4056,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        interaction.depth = 3,
                        n.minobsinnode = 10,
                        shrinkage = 0.001,
-                       cv.folds = 10, n.cores = 6)
+                       cv.folds = 10, n.cores = cores_for_parallel)
             # find index for number trees with minimum CV error
             best <- which.min(fit$cv.error)
             set.seed(seed)
@@ -4058,7 +4065,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        interaction.depth = 3,
                        n.minobsinnode = 10,
                        shrinkage = 0.001,
-                       cv.folds = 10, n.cores = 8)
+                       cv.folds = 10, n.cores = cores_for_parallel)
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
             cc <- data.frame(Cindex = sapply(rs,function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])}))%>%
               rownames_to_column('ID')
