@@ -137,7 +137,7 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
     train_data <- inputmatrix.list[[i]]
     test.matrix <- train_data %>%
       magrittr::set_rownames(.$ID) %>%
-      select(-c(ID, OS.time, OS)) %>%
+      dplyr::select(-c(ID, OS.time, OS)) %>%
       t()
 
     tryCatch(
