@@ -51,7 +51,7 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
     cell_type_map %>%
       filter(method_dataset == !!method) %>%
       inner_join(result_table, by = "method_cell_type") %>%
-      select(-method_cell_type, -method_dataset)
+      dplyr::select(-method_cell_type, -method_dataset)
   }
   set_cibersort_binary(system.file("extdata", "CIBERSORT.R", package = "Mime1"))
   set_cibersort_mat(system.file("extdata", "LM22.txt", package = "Mime1"))
@@ -82,7 +82,7 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
       for (method in deconvolution_method) {
         message(paste0("\n", ">>> Running ", method))
 
-        # run selected method
+        # run ed method
         res <- switch(method,
           xcell = immunedeconv::deconvolute_xcell(gene_expression, arrays = arrays, expected_cell_types = expected_cell_types, ...),
           epic = immunedeconv::deconvolute_epic(gene_expression, tumor = tumor, scale_mrna = scale_mrna, ...),
