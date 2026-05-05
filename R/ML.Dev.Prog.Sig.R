@@ -15,6 +15,9 @@
 #' @param double_ml2  The second algorithm of the algorithm combination. If you set the mode as the 'double', you should set this from the c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso"). Here we only provide ten options. The specific combinations of the algorithms are provided in the documentation.
 #' @param nodesize The parameter for 'RSF'. The default is 5. You can try the positive number from 5 to 10.
 #' @param seed The seed you can set as any positive integer, for example, 5201314.
+#' @param ensemble_top_n Integer. Number of top models to combine via C-index weighted voting. 0 = disabled (default).
+#' @param algo_timeout Integer. Timeout in seconds for each algorithm (default 1800 = 30 minutes).
+#' @param extra_metrics Logical. Whether to compute additional metrics (IBS, Uno's C, D-index) (default FALSE).
 #'
 #' @return A list containing the developed predictive model, the risk score of the model in each data, the C index of the model in each data, and the variables used to construct the model.
 #' @export
@@ -34,9 +37,28 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            double_ml2 = NULL,# c("RSF", "Enet", "StepCox","CoxBoost","plsRcox","superpc","GBM","survivalsvm","Ridge","Lasso")
                            nodesize = NULL, # reference 5-10
                            seed = NULL, # 5201314
-                           cores_for_parallel = NULL  #cores for gbm
+                           cores_for_parallel = NULL,  #cores for gbm
+                           ensemble_top_n = 0L,
+                           algo_timeout = 1800L,
+                           extra_metrics = FALSE
                            ){
-  
+  # --- Error isolation wrapper (new) ---
+  safe_run_algo <- function(algo_name, expr, timeout_sec = algo_timeout) {
+    message(sprintf("  [SAFE_RUN] Starting %s (timeout=%ds)", algo_name, timeout_sec))
+    tryCatch(
+      R.utils::withTimeout(
+        expr,
+        timeout = timeout_sec,
+        onTimeout = "error"
+      ),
+      error = function(e) {
+        message(sprintf("  [SAFE_RUN] %s FAILED: %s", algo_name, e$message))
+        warning(sprintf("[SKIP] %s failed: %s", algo_name, e$message))
+        return(NULL)
+      }
+    )
+  }
+
   if (is.null(alpha_for_Enet) == T){
     alpha_for_Enet<-0.1 ## default 0.35
   } else {
@@ -55,9 +77,32 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
   } else {
     direction_for_stepcox<-direction_for_stepcox
   }
-  
-  
-  
+
+  if (is.null(ensemble_top_n)) {
+    ensemble_top_n <- 0L
+  }
+
+  if (is.null(algo_timeout) || algo_timeout <= 0) {
+    algo_timeout <- 1800L
+  }
+
+  if (is.null(extra_metrics)) {
+    extra_metrics <- FALSE
+  }
+
+  if (is.null(nodesize)) {
+    nodesize <- 5
+  }
+
+  if (is.null(seed)) {
+    seed <- 42
+  }
+
+  if (is.null(candidate_genes)) {
+    candidate_genes <- colnames(train_data)[-(1:3)]
+  }
+
+
   #loading the packages
   if(T) {
     library(Matrix)
@@ -80,6 +125,12 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
     library(ggbreak)
     library(mixOmics)
     library(data.table)
+    library(R.utils)
+    library(aorsf)
+    library(party)
+    library(mboost)
+    library(stabs)
+    library(mRMRe)
 
 
 
@@ -218,8 +269,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
     
     return(rs.table.list)
   }
-  
-  
+
 
   if(!is.na(rf_nodesize)&
      !is.na(seed)&
@@ -273,9 +323,47 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       return(x)})
 
     train_data = train_data[,common_feature]
+
     train_data[,-c(1:3)] <- apply(train_data[,-c(1:3)],2,as.numeric)
     train_data[,c(1:2)] <- apply(train_data[,c(1:2)],2,as.factor)
     train_data[,c(2:3)] <- apply(train_data[,c(2:3)],2,as.numeric)
+
+    # Deduplicate column names AFTER apply() which renames duplicates with .1, .2 suffixes
+    cnames <- colnames(train_data)
+    if (any(duplicated(cnames))) {
+      dup_idx <- which(duplicated(cnames))
+      for (i in dup_idx) {
+        base_name <- cnames[i]
+        suffix <- 1
+        new_name <- paste0(base_name, ".", suffix)
+        while (new_name %in% cnames) {
+          suffix <- suffix + 1
+          new_name <- paste0(base_name, ".", suffix)
+        }
+        cnames[i] <- new_name
+      }
+      colnames(train_data) <- cnames
+      common_feature <- cnames
+      list_train_vali_Data <- lapply(list_train_vali_Data, function(x) {
+        cn <- colnames(x)
+        if (any(duplicated(cn))) {
+          dup_idx2 <- which(duplicated(cn))
+          for (j in dup_idx2) {
+            base_name <- cn[j]
+            suffix <- 1
+            new_name <- paste0(base_name, ".", suffix)
+            while (new_name %in% cn) {
+              suffix <- suffix + 1
+              new_name <- paste0(base_name, ".", suffix)
+            }
+            cn[j] <- new_name
+          }
+          colnames(x) <- cn
+        }
+        return(x)
+      })
+      message(sprintf("--- Deduplicated %d duplicate column names ---", length(dup_idx)))
+    }
 
     if(is.null(unicox_p_cutoff)){
       unicox_p_cutoff =0.05
@@ -366,7 +454,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
         set.seed(seed)
         pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
-                                    trace=TRUE, start.penalty = 500, parallel = T)
+                                    trace=TRUE, start.penalty = 500, parallel = FALSE)
 
 
         cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
@@ -795,32 +883,38 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
         message( paste0('---3.StepCox', '[', direction, ']---'))
 
-        fit <- step(coxph(Surv(OS.time,OS)~., est_dd), direction = direction)
+        tryCatch({
+          fit <- step(coxph(Surv(OS.time,OS)~., est_dd), direction = direction)
 
+          rs <- lapply(val_dd_list,function(x){cbind(x[, 1:2], RS = predict(fit, type = 'risk', newdata = x))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StepCox', '[', direction, ']')
+          result <- rbind(result, cc)
+          ml.res[[ paste0('StepCox', '[', direction, ']')]] = fit
+          rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
 
+          riskscore[[   paste0('StepCox', '[', direction, ']')]] = rs
+        }, error = function(e) {
+          warning(sprintf("[SKIP] StepCox[%s] failed: %s", direction, e$message))
+        })
 
-        rs <- lapply(val_dd_list,function(x){cbind(x[, 1:2], RS = predict(fit, type = 'risk', newdata = x))})
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
-          rownames_to_column('ID')
-        cc$Model <- paste0('StepCox', '[', direction, ']')
-        result <- rbind(result, cc)
-        ml.res[[ paste0('StepCox', '[', direction, ']')]] = fit
-        rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
-
-        riskscore[[   paste0('StepCox', '[', direction, ']')]] = rs
-
-
-      }
+      } # end for direction
 
 
       #### direction = both ####
       direction = 'both'
 
       if(T){
-        fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
-        rid <- names(coef(fit))#这里不用卡P值，迭代的结果就是可以纳入的基因
+        rid <- tryCatch({
+          fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
+          names(coef(fit))
+        }, error = function(e) {
+          warning(sprintf("[SKIP] StepCox[%s] + combinations failed: %s", direction, e$message))
+          NULL
+        })
 
-        if(length(rid)>1) {
+        if(!is.null(rid) && length(rid)>1) {
 
           est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
@@ -829,7 +923,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           message( paste0('---3.StepCox', '[', direction, ']', ' + CoxBoost ---'))
 
           pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
-                                      trace=TRUE, start.penalty = 500, parallel = T)
+                                      trace=TRUE, start.penalty = 500, parallel = FALSE)
           cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
                                 maxstepno = 500, K = 10 , type = "verweij", penalty = pen$penalty)
           fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
@@ -1053,10 +1147,15 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       direction = 'backward'
 
       if(T){
-        fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
-        rid <- names(coef(fit))#这里不用卡P值，迭代的结果就是可以纳入的基因
+        rid <- tryCatch({
+          fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
+          names(coef(fit))
+        }, error = function(e) {
+          warning(sprintf("[SKIP] StepCox[%s] + combinations failed: %s", direction, e$message))
+          NULL
+        })
 
-        if(length(rid)>1) {
+        if(!is.null(rid) && length(rid)>1) {
 
           est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
@@ -1065,7 +1164,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           message( paste0('---3.StepCox', '[', direction, ']', ' + CoxBoost ---'))
 
           pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
-                                      trace=TRUE, start.penalty = 500, parallel = T)
+                                      trace=TRUE, start.penalty = 500, parallel = FALSE)
           cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
                                 maxstepno = 500, K = 10 , type = "verweij", penalty = pen$penalty)
           fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
@@ -1288,10 +1387,15 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       direction = 'forward'
 
       if(T){
-        fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
-        rid <- names(coef(fit))#这里不用卡P值，迭代的结果就是可以纳入的基因
+        rid <- tryCatch({
+          fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
+          names(coef(fit))
+        }, error = function(e) {
+          warning(sprintf("[SKIP] StepCox[%s] + combinations failed: %s", direction, e$message))
+          NULL
+        })
 
-        if(length(rid)>1) {
+        if(!is.null(rid) && length(rid)>1) {
 
           est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
@@ -1300,7 +1404,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           message( paste0('---3.StepCox', '[', direction, ']', ' + CoxBoost ---'))
 
           pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
-                                      trace=TRUE, start.penalty = 500, parallel = T)
+                                      trace=TRUE, start.penalty = 500, parallel = FALSE)
           cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
                                 maxstepno = 500, K = 10 , type = "verweij", penalty = pen$penalty)
           fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
@@ -1524,7 +1628,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       ## 4-1.CoxBoost
       set.seed(seed)
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
       cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]), maxstepno = 500, K = 10, type = "verweij", penalty = pen$penalty)
@@ -1546,7 +1650,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
       set.seed(seed)
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
       cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -1589,7 +1693,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       message( paste0('--- 4.CoxBoost + ', 'GBM ---'))
 
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
       cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -1643,7 +1747,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       message( paste0('--- 4.CoxBoost + ', 'Lasso ---'))
 
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
 
@@ -1685,7 +1789,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       message( paste0('--- 4.CoxBoost + ', 'plsRcox ---'))
 
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
       cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
                             maxstepno = 500, K = 10, type = "verweij", penalty = pen$penalty)
@@ -1725,7 +1829,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       message( paste0('--- 4.CoxBoost + ', 'Ridge ---'))
 
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
       cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -1767,7 +1871,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       ## 4-7.CoxBoost + StepCox
       set.seed(seed)
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
       cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -1809,7 +1913,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
     message(paste0('--- 4.CoxBoost + ', 'SuperPC ---'))
 
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
 
@@ -1872,7 +1976,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
       set.seed(seed)
       pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
       cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -2058,6 +2162,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
       ## 10.1.Lasso + CoxBoost
 
+      tryCatch({
       message( paste0('--- 10.Lasso + ','CoxBoost ---'))
 
       x1 <- as.matrix(est_dd[, pre_var])
@@ -2079,7 +2184,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
       set.seed(seed)
       pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
-                                  trace = TRUE, start.penalty = 500, parallel = T)
+                                  trace = FALSE, start.penalty = 500, parallel = FALSE)
 
       cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
                             maxstepno = 500, K = 10, type = "verweij", penalty = pen$penalty)
@@ -2093,12 +2198,13 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
       ml.res[[  paste0('Lasso + ','CoxBoost')]] =  fit
       rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
-      
+
       riskscore[[  paste0('Lasso + ','CoxBoost')]] = rs
 
       } else {
         warning('The number of seleted candidate gene by Lasso, the first machine learning algorithm, is less than 2')
       }
+      }, error = function(e) warning(sprintf("[SKIP] Lasso + CoxBoost: %s", e$message)))
 
       ## 10.2.Lasso + GBM
 
@@ -2375,10 +2481,1495 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         warning('The number of seleted candidate gene by Lasso, the first machine learning algorithm, is less than 2')
       }
 
+
+
+
+      # NEW: Adaptive Lasso Cox --------------------------------------------------------------
+      message("---NEW: Adaptive Lasso Cox ---")
+      ml.res[["Alasso"]] <- safe_run_algo("Alasso", {
+        set.seed(seed)
+        x_train <- as.matrix(est_dd[, -c(1, 2)])
+        y_train <- Surv(est_dd$OS.time, est_dd$OS)
+        # Step 1: Ridge for initial coefficient estimates
+        init_fit <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 0, nfolds = 10)
+        init_coef <- as.numeric(coef(init_fit, s = "lambda.min"))
+        penalty_wts <- 1 / (abs(init_coef) + 1e-8)
+        # Step 2: Weighted Lasso
+        glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 1,
+                           nfolds = 10, penalty.factor = penalty_wts)
+      })
+
+      if (!is.null(ml.res[["Alasso"]])) {
+        tryCatch({
+          fit_alasso <- ml.res[["Alasso"]]
+          feature.ac <- fit_alasso$glmnet.fit$beta@Dimnames[[1]]
+          rs <- lapply(val_dd_list, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(
+              predict(fit_alasso, type = "link", newx = as.matrix(x[, feature.ac]),
+                      s = fit_alasso$lambda.min)
+            ))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "Alasso"
+          result <- rbind(result, cc)
+          riskscore[["Alasso"]] <- rs
+        }, error = function(e) warning(sprintf("[SKIP] Alasso: %s", e$message)))
+      }
+
+      # NEW: Oblique Random Survival Forest (aorsf) --------------------------------------------------------------
+      message("---NEW: Oblique RSF ---")
+      ml.res[["ORSF"]] <- safe_run_algo("ORSF", {
+        set.seed(seed)
+        aorsf::orsf(
+          formula = Surv(OS.time, OS) ~ .,
+          data = est_dd,
+          n_tree = 500
+        )
+      })
+
+      if (!is.null(ml.res[["ORSF"]])) {
+        tryCatch({
+          fit_orsf <- ml.res[["ORSF"]]
+          rs <- lapply(val_dd_list, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(predict(fit_orsf, new_data = x)))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "ORSF"
+          result <- rbind(result, cc)
+          riskscore[["ORSF"]] <- rs
+        }, error = function(e) warning(sprintf("[SKIP] ORSF: %s", e$message)))
+      }
+
+      # NEW: Conditional Inference Forest --------------------------------------------------------------
+      message("---NEW: Conditional Inference Forest ---")
+      ml.res[["CIF"]] <- safe_run_algo("CIF", {
+        set.seed(seed)
+        party::cforest(
+          Surv(OS.time, OS) ~ .,
+          data = est_dd,
+          controls = party::cforest_control(ntree = 500)
+        )
+      })
+
+      if (!is.null(ml.res[["CIF"]])) {
+        tryCatch({
+          fit_cif <- ml.res[["CIF"]]
+          rs <- lapply(val_dd_list, function(x) {
+            preds <- as.numeric(predict(fit_cif, newdata = x, type = "response"))
+            preds[is.infinite(preds) | is.nan(preds)] <- NA
+            cbind(x[, 1:2], RS = preds)
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            complete <- x[complete.cases(x), ]
+            if (nrow(complete) < 5) return(NA_real_)
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, complete))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "CIF"
+          result <- rbind(result, cc)
+          riskscore[["CIF"]] <- rs
+        }, error = function(e) warning(sprintf("[SKIP] CIF: %s", e$message)))
+      }
+
+      # NEW: mboost (Model-based Boosting) --------------------------------------------------------------
+      message("---NEW: mboost ---")
+      ml.res[["mboost"]] <- safe_run_algo("mboost", {
+        set.seed(seed)
+        surv_obj <- Surv(est_dd$OS.time, est_dd$OS)
+        fmla <- as.formula(paste("surv_obj ~", paste(
+          paste0("`", colnames(est_dd)[-c(1, 2)], "`"), collapse = "+"
+        )))
+        fit_mboost <- mboost::mboost(
+          fmla, data = est_dd[, -c(1, 2)],
+          family = mboost::CoxPH(),
+          control = mboost::boost_control(mstop = 200, nu = 0.1)
+        )
+        cv_res <- mboost::cvrisk(fit_mboost, folds = mboost::cv(model.weights(fit_mboost), type = "kfold", B = 10))
+        fit_mboost[mstop(cv_res)]
+      })
+
+      if (!is.null(ml.res[["mboost"]])) {
+        fit_mboost <- ml.res[["mboost"]]
+        rs <- lapply(val_dd_list, function(x) {
+          cbind(x[, 1:2], RS = as.numeric(predict(fit_mboost, newdata = x[, -c(1, 2)], type = "link")))
+        })
+        rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+        cc <- data.frame(Cindex = sapply(rs, function(x) {
+          as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+        })) %>% rownames_to_column('ID')
+        cc$Model <- "mboost"
+        result <- rbind(result, cc)
+        riskscore[["mboost"]] <- rs
+      }
+
+
+
+      # =========================================================================
+      # NEW FIRST-STAGE SELECTORS (each combined with all 18 second-stage algos)
+      # =========================================================================
+
+      # --- NEW: Boruta first-stage selector ---
+      message("---NEW: Boruta feature selection ---")
+      ml.res[["Boruta-feature-sel"]] <- safe_run_algo("Boruta-feature-sel", {
+        set.seed(seed)
+        med_time <- median(est_dd$OS.time)
+        y_class <- ifelse(est_dd$OS == 1 & est_dd$OS.time < med_time, "poor",
+                   ifelse(est_dd$OS == 0 & est_dd$OS.time >= med_time, "good", NA))
+        keep_idx <- !is.na(y_class)
+        boruta_data <- est_dd[keep_idx, -c(1, 2)]
+        boruta_y <- as.factor(y_class[keep_idx])
+        boruta_res <- Boruta::Boruta(x = boruta_data, y = boruta_y, pValue = 0.01, maxRuns = 1000)
+        names(boruta_res$finalDecision[boruta_res$finalDecision == "Confirmed"])
+      })
+      boruta_sel <- ml.res[["Boruta-feature-sel"]]
+
+      if (!is.null(boruta_sel) && length(boruta_sel) > 1) {
+
+        rid <- boruta_sel
+        est_dd2 <- train_data[, c('OS.time', 'OS', rid)]
+        val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
+
+          # 2nd-stage: RSF
+          message("---Boruta + RSF ---")
+          set.seed(seed)
+          fit <- rfsrc(Surv(OS.time, OS)~., data = est_dd2,
+                       ntree = 1000, nodesize = rf_nodesize,
+                       splitrule = 'logrank', importance = T, proximity = T, forest = T, seed = seed)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'RSF')
+          result <- rbind(result, cc)
+          riskscore[[paste0('Boruta + ', 'RSF')]] <- rs
+
+          # 2nd-stage: CoxBoost
+          message("---Boruta + CoxBoost ---")
+          set.seed(seed)
+          pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                      trace=TRUE, start.penalty = 500, parallel = FALSE)
+          cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                maxstepno = 500, K = 10, type = "verweij",  penalty = pen$penalty)
+          fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                          stepno = cv.res$optimal.step, penalty = pen$penalty)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x[, -c(1, 2)], newtime = x[, 1],  newstatus = x[, 2], type = "lp")))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'CoxBoost')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('Boruta + ', 'CoxBoost')]] <- rs
+
+          # 2nd-stage: Enet
+          message("---Boruta + Enet ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          for (alpha in seq(0.1, 0.9, 0.1)) {
+            set.seed(seed)
+            fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha, nfolds = 10)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('Boruta + ', 'Enet', '[\u03b1=', alpha, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('Boruta + ', 'Enet', '[\u03b1=', alpha, ']')]] <- rs
+          }
+
+          # 2nd-stage: GBM
+          message("---Boruta + GBM ---")
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = 10000, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          best <- which.min(fit$cv.error)
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = best, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'GBM')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('Boruta + ', 'GBM')]] <- rs
+
+          # 2nd-stage: Lasso
+          message("---Boruta + Lasso ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold = 10, family = "cox", alpha = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'Lasso')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('Boruta + ', 'Lasso')]] <- rs
+
+          # 2nd-stage: plsRcox
+          message("---Boruta + plsRcox ---")
+          set.seed(seed)
+          cv.plsRcox.res = cv.plsRcox(list(x = est_dd2[, rid], time = est_dd2$OS.time, status = est_dd2$OS), nt = 10, verbose = FALSE)
+          fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1, 2)])))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'plsRcox')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('Boruta + ', 'plsRcox')]] <- rs
+
+          # 2nd-stage: SuperPC
+          message("---Boruta + SuperPC ---")
+          data <- list(x = t(est_dd2[, -c(1, 2)]), y = est_dd2$OS.time,
+                       censoring.status = est_dd2$OS,
+                       featurenames = colnames(est_dd2)[-c(1, 2)])
+          set.seed(seed)
+          fit <- superpc.train(data = data, type = 'survival', s0.perc = 0.5)
+          repeat {
+            tryCatch({
+              cv.fit <- superpc.cv(fit, data, n.threshold = 20, n.fold = 10,
+                                   n.components = 3, min.features = 2,
+                                   max.features = nrow(data$x),
+                                   compute.fullcv = TRUE, compute.preval =TRUE)
+              break
+            }, error = function(e) {
+              cat("Error:", conditionMessage(e), "\n")
+              cat("Retrying...\n")
+              Sys.sleep(1)
+            })
+          }
+          rs <- lapply(val_dd_list2, function(w){
+            test <- list(x = t(w[, -c(1, 2)]), y = w$OS.time, censoring.status=w$OS, featurenames = colnames(w)[-c(1, 2)])
+            ff <- superpc.predict(fit, data, test, threshold = cv.fit$thresholds[which.max(cv.fit[["scor"]][1, ])], n.components = 1)
+            rr <- as.numeric(ff$v.pred)
+            rr2 <- cbind(w[, 1:2], RS = rr)
+            return(rr2)
+          })
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'SuperPC')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('Boruta + ', 'SuperPC')]] <- rs
+
+          # 2nd-stage: survival-SVM
+          message("---Boruta + survival-SVM ---")
+          fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=as.numeric(predict(fit, x)$predicted))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'survival-SVM')
+          result <- rbind(result,cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('Boruta + ', 'survival-SVM')]] <- rs
+
+          # 2nd-stage: Ridge
+          message("---Boruta + Ridge ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold=10, family = "cox", alpha = 0)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('Boruta + ', 'Ridge')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('Boruta + ', 'Ridge')]] <- rs
+
+          # 2nd-stage: StepCox
+          for (direction in c("both", "backward", "forward")) {
+            message(paste0('---Boruta + StepCox', '[', direction, ']---'))
+            fit <- step(coxph(Surv(OS.time, OS)~., est_dd2), direction = direction)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=predict(fit, type = 'risk', newdata = x))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('Boruta + ', 'StepCox', '[', direction, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('Boruta + ', 'StepCox', '[', direction, ']')]] <- rs
+          }
+
+
+
+          # 2nd-stage: Alasso
+          message("---Boruta + Alasso ---")
+          set.seed(seed)
+          x_train <- as.matrix(est_dd2[, -c(1, 2)])
+          y_train <- Surv(est_dd2$OS.time, est_dd2$OS)
+          init_fit <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 0, nfolds = 10)
+          init_coef <- as.numeric(coef(init_fit, s = "lambda.min"))
+          penalty_wts <- 1 / (abs(init_coef) + 1e-8)
+          fit_alasso <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 1,
+                             nfolds = 10, penalty.factor = penalty_wts)
+          feature.ac <- fit_alasso$glmnet.fit$beta@Dimnames[[1]]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(
+              predict(fit_alasso, type = "link", newx = as.matrix(x[, feature.ac]),
+                      s = fit_alasso$lambda.min)
+            ))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "Boruta + Alasso"
+          result <- rbind(result, cc)
+          riskscore[["Boruta + Alasso"]] <- rs
+
+          # 2nd-stage: ORSF
+          message("---Boruta + ORSF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_orsf <- aorsf::orsf(
+              formula = Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              n_tree = 500
+            )
+            feature.ac <- names(fit_orsf$data$types)
+            rs <- lapply(val_dd_list2, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit_orsf, new_data = x)))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "Boruta + ORSF"
+            result <- rbind(result, cc)
+            riskscore[["Boruta + ORSF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] Boruta + ORSF: %s", e$message)))
+
+          # 2nd-stage: CIF
+          message("---Boruta + CIF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_cif <- party::cforest(
+              Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              controls = party::cforest_control(ntree = 500)
+            )
+            rs <- lapply(val_dd_list2, function(x) {
+              preds <- as.numeric(predict(fit_cif, newdata = x, type = "response"))
+              preds[is.infinite(preds) | is.nan(preds)] <- NA
+              cbind(x[, 1:2], RS = preds)
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              complete <- x[complete.cases(x), ]
+              if (nrow(complete) < 5) return(NA_real_)
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, complete))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "Boruta + CIF"
+            result <- rbind(result, cc)
+            riskscore[["Boruta + CIF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] Boruta + CIF: %s", e$message)))
+
+          # 2nd-stage: mboost
+          tryCatch({
+          message("---Boruta + mboost ---")
+          set.seed(seed)
+          surv_obj <- Surv(est_dd2$OS.time, est_dd2$OS)
+          fmla <- as.formula(paste("surv_obj ~", paste(
+            paste0("`", colnames(est_dd2)[-c(1, 2)], "`"), collapse = "+"
+          )))
+          fit_mboost <- mboost::mboost(
+            fmla, data = est_dd2[, -c(1, 2)],
+            family = mboost::CoxPH(),
+            control = mboost::boost_control(mstop = 200, nu = 0.1)
+          )
+          cv_res <- mboost::cvrisk(fit_mboost, folds = mboost::cv(model.weights(fit_mboost), type = "kfold", B = 10))
+          fit_mboost[mstop(cv_res)]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(predict(fit_mboost, newdata = x[, -c(1, 2)], type = "link")))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "Boruta + mboost"
+          result <- rbind(result, cc)
+          riskscore[["Boruta + mboost"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] Boruta + mboost: %s", e$message)))
+
+
+
+      } else {
+        warning('Boruta selected fewer than 2 features; skipping Boruta combination stage')
+      }
+
+      # --- NEW: XGB-imp first-stage selector ---
+      message("---NEW: XGBoost Importance feature selection ---")
+      ml.res[["XGB-imp-feature-sel"]] <- safe_run_algo("XGB-imp-feature-sel", {
+        set.seed(seed)
+        surv_label <- ifelse(est_dd$OS == 1, est_dd$OS.time, -est_dd$OS.time)
+        dtrain <- xgboost::xgb.DMatrix(data = as.matrix(est_dd[,-c(1,2)]), label = surv_label)
+        xgb_model <- xgboost::xgb.train(
+          params = list(objective = "survival:cox", max_depth = 6, eta = 0.1),
+          data = dtrain, nrounds = 100, verbose = 0
+        )
+        imp <- xgboost::xgb.importance(model = xgb_model)
+        as.character(imp$Feature[imp$Gain > 0.01])
+      })
+      xgbimp_sel <- ml.res[["XGB-imp-feature-sel"]]
+
+      if (!is.null(xgbimp_sel) && length(xgbimp_sel) > 1) {
+
+        rid <- xgbimp_sel
+        est_dd2 <- train_data[, c('OS.time', 'OS', rid)]
+        val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
+
+          # 2nd-stage: RSF
+          message("---XGB-imp + RSF ---")
+          set.seed(seed)
+          fit <- rfsrc(Surv(OS.time, OS)~., data = est_dd2,
+                       ntree = 1000, nodesize = rf_nodesize,
+                       splitrule = 'logrank', importance = T, proximity = T, forest = T, seed = seed)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'RSF')
+          result <- rbind(result, cc)
+          riskscore[[paste0('XGB-imp + ', 'RSF')]] <- rs
+
+          # 2nd-stage: CoxBoost
+          message("---XGB-imp + CoxBoost ---")
+          set.seed(seed)
+          pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                      trace=TRUE, start.penalty = 500, parallel = FALSE)
+          cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                maxstepno = 500, K = 10, type = "verweij",  penalty = pen$penalty)
+          fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                          stepno = cv.res$optimal.step, penalty = pen$penalty)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x[, -c(1, 2)], newtime = x[, 1],  newstatus = x[, 2], type = "lp")))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'CoxBoost')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('XGB-imp + ', 'CoxBoost')]] <- rs
+
+          # 2nd-stage: Enet
+          message("---XGB-imp + Enet ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          for (alpha in seq(0.1, 0.9, 0.1)) {
+            set.seed(seed)
+            fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha, nfolds = 10)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('XGB-imp + ', 'Enet', '[\u03b1=', alpha, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('XGB-imp + ', 'Enet', '[\u03b1=', alpha, ']')]] <- rs
+          }
+
+          # 2nd-stage: GBM
+          message("---XGB-imp + GBM ---")
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = 10000, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          best <- which.min(fit$cv.error)
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = best, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'GBM')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('XGB-imp + ', 'GBM')]] <- rs
+
+          # 2nd-stage: Lasso
+          message("---XGB-imp + Lasso ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold = 10, family = "cox", alpha = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'Lasso')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('XGB-imp + ', 'Lasso')]] <- rs
+
+          # 2nd-stage: plsRcox
+          message("---XGB-imp + plsRcox ---")
+          set.seed(seed)
+          cv.plsRcox.res = cv.plsRcox(list(x = est_dd2[, rid], time = est_dd2$OS.time, status = est_dd2$OS), nt = 10, verbose = FALSE)
+          fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1, 2)])))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'plsRcox')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('XGB-imp + ', 'plsRcox')]] <- rs
+
+          # 2nd-stage: SuperPC
+          message("---XGB-imp + SuperPC ---")
+          data <- list(x = t(est_dd2[, -c(1, 2)]), y = est_dd2$OS.time,
+                       censoring.status = est_dd2$OS,
+                       featurenames = colnames(est_dd2)[-c(1, 2)])
+          set.seed(seed)
+          fit <- superpc.train(data = data, type = 'survival', s0.perc = 0.5)
+          repeat {
+            tryCatch({
+              cv.fit <- superpc.cv(fit, data, n.threshold = 20, n.fold = 10,
+                                   n.components = 3, min.features = 2,
+                                   max.features = nrow(data$x),
+                                   compute.fullcv = TRUE, compute.preval =TRUE)
+              break
+            }, error = function(e) {
+              cat("Error:", conditionMessage(e), "\n")
+              cat("Retrying...\n")
+              Sys.sleep(1)
+            })
+          }
+          rs <- lapply(val_dd_list2, function(w){
+            test <- list(x = t(w[, -c(1, 2)]), y = w$OS.time, censoring.status=w$OS, featurenames = colnames(w)[-c(1, 2)])
+            ff <- superpc.predict(fit, data, test, threshold = cv.fit$thresholds[which.max(cv.fit[["scor"]][1, ])], n.components = 1)
+            rr <- as.numeric(ff$v.pred)
+            rr2 <- cbind(w[, 1:2], RS = rr)
+            return(rr2)
+          })
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'SuperPC')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('XGB-imp + ', 'SuperPC')]] <- rs
+
+          # 2nd-stage: survival-SVM
+          message("---XGB-imp + survival-SVM ---")
+          fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=as.numeric(predict(fit, x)$predicted))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'survival-SVM')
+          result <- rbind(result,cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('XGB-imp + ', 'survival-SVM')]] <- rs
+
+          # 2nd-stage: Ridge
+          message("---XGB-imp + Ridge ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold=10, family = "cox", alpha = 0)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('XGB-imp + ', 'Ridge')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('XGB-imp + ', 'Ridge')]] <- rs
+
+          # 2nd-stage: StepCox
+          for (direction in c("both", "backward", "forward")) {
+            message(paste0('---XGB-imp + StepCox', '[', direction, ']---'))
+            fit <- step(coxph(Surv(OS.time, OS)~., est_dd2), direction = direction)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=predict(fit, type = 'risk', newdata = x))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('XGB-imp + ', 'StepCox', '[', direction, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('XGB-imp + ', 'StepCox', '[', direction, ']')]] <- rs
+          }
+
+
+
+          # 2nd-stage: Alasso
+          message("---XGB-imp + Alasso ---")
+          set.seed(seed)
+          x_train <- as.matrix(est_dd2[, -c(1, 2)])
+          y_train <- Surv(est_dd2$OS.time, est_dd2$OS)
+          init_fit <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 0, nfolds = 10)
+          init_coef <- as.numeric(coef(init_fit, s = "lambda.min"))
+          penalty_wts <- 1 / (abs(init_coef) + 1e-8)
+          fit_alasso <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 1,
+                             nfolds = 10, penalty.factor = penalty_wts)
+          feature.ac <- fit_alasso$glmnet.fit$beta@Dimnames[[1]]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(
+              predict(fit_alasso, type = "link", newx = as.matrix(x[, feature.ac]),
+                      s = fit_alasso$lambda.min)
+            ))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "XGB-imp + Alasso"
+          result <- rbind(result, cc)
+          riskscore[["XGB-imp + Alasso"]] <- rs
+
+          # 2nd-stage: ORSF
+          message("---XGB-imp + ORSF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_orsf <- aorsf::orsf(
+              formula = Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              n_tree = 500
+            )
+            feature.ac <- names(fit_orsf$data$types)
+            rs <- lapply(val_dd_list2, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit_orsf, new_data = x)))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "XGB-imp + ORSF"
+            result <- rbind(result, cc)
+            riskscore[["XGB-imp + ORSF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] XGB-imp + ORSF: %s", e$message)))
+
+          # 2nd-stage: CIF
+          message("---XGB-imp + CIF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_cif <- party::cforest(
+              Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              controls = party::cforest_control(ntree = 500)
+            )
+            rs <- lapply(val_dd_list2, function(x) {
+              preds <- as.numeric(predict(fit_cif, newdata = x, type = "response"))
+              preds[is.infinite(preds) | is.nan(preds)] <- NA
+              cbind(x[, 1:2], RS = preds)
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              complete <- x[complete.cases(x), ]
+              if (nrow(complete) < 5) return(NA_real_)
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, complete))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "XGB-imp + CIF"
+            result <- rbind(result, cc)
+            riskscore[["XGB-imp + CIF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] XGB-imp + CIF: %s", e$message)))
+
+          # 2nd-stage: mboost
+          tryCatch({
+          message("---XGB-imp + mboost ---")
+          set.seed(seed)
+          surv_obj <- Surv(est_dd2$OS.time, est_dd2$OS)
+          fmla <- as.formula(paste("surv_obj ~", paste(
+            paste0("`", colnames(est_dd2)[-c(1, 2)], "`"), collapse = "+"
+          )))
+          fit_mboost <- mboost::mboost(
+            fmla, data = est_dd2[, -c(1, 2)],
+            family = mboost::CoxPH(),
+            control = mboost::boost_control(mstop = 200, nu = 0.1)
+          )
+          cv_res <- mboost::cvrisk(fit_mboost, folds = mboost::cv(model.weights(fit_mboost), type = "kfold", B = 10))
+          fit_mboost[mstop(cv_res)]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(predict(fit_mboost, newdata = x[, -c(1, 2)], type = "link")))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "XGB-imp + mboost"
+          result <- rbind(result, cc)
+          riskscore[["XGB-imp + mboost"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] XGB-imp + mboost: %s", e$message)))
+
+
+
+      } else {
+        warning('XGB-imp selected fewer than 2 features; skipping XGB-imp combination stage')
+      }
+
+      # --- NEW: ENet Stability first-stage selector (replaces StabSel to avoid stabs segfault) ---
+      message("---NEW: ENet Stability feature selection ---")
+      ml.res[["StabSel-feature-sel"]] <- tryCatch({
+        set.seed(seed)
+        x_mat <- as.matrix(est_dd[, -c(1, 2)])
+        y_surv <- Surv(est_dd$OS.time, est_dd$OS)
+        gene_freq <- rep(0, ncol(x_mat))
+        names(gene_freq) <- colnames(x_mat)
+        n_fits <- 0
+        for (aa in seq(0.1, 1.0, by = 0.1)) {
+          for (rr in 1:3) {
+            fit_e <- tryCatch({
+              idx_s <- sample(1:nrow(x_mat), floor(0.8 * nrow(x_mat)), replace = FALSE)
+              cv.glmnet(x_mat[idx_s, ], y_surv[idx_s], family = "cox", alpha = aa, nfolds = 5)
+            }, error = function(e) NULL)
+            if (!is.null(fit_e)) {
+              coefs <- coef(fit_e, s = "lambda.min")
+              sel <- rownames(coefs)[which(coefs[, 1] != 0)]
+              if (length(sel) > 0) gene_freq[sel] <- gene_freq[sel] + 1
+              n_fits <- n_fits + 1
+            }
+          }
+        }
+        result_genes <- if (n_fits > 0) names(which(gene_freq / n_fits >= 0.3)) else character(0)
+        message(sprintf("  [DEBUG] StabSel: %d fits, %d genes selected", n_fits, length(result_genes)))
+        result_genes
+      }, error = function(e) {
+        message(sprintf("  [WARN] StabSel selector failed: %s", e$message))
+        NULL
+      })
+      stabsel_sel <- ml.res[["StabSel-feature-sel"]]
+
+      if (!is.null(stabsel_sel) && length(stabsel_sel) > 1) {
+
+        rid <- stabsel_sel
+        message(sprintf("  [DEBUG] StabSel second-stage: %d genes", length(rid)))
+        est_dd2 <- tryCatch({
+          train_data[, c('OS.time', 'OS', rid)]
+        }, error = function(e) {
+          message(sprintf("  [ERROR] StabSel est_dd2 failed: %s", e$message))
+          NULL
+        })
+        if (!is.null(est_dd2)) {
+        val_dd_list2 <- tryCatch({
+          lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
+        }, error = function(e) {
+          message(sprintf("  [ERROR] StabSel val_dd_list2 failed: %s", e$message))
+          NULL
+        })
+        if (!is.null(val_dd_list2)) {
+
+          # 2nd-stage: RSF
+          tryCatch({
+          message("---StabSel + RSF ---")
+          set.seed(seed)
+          fit <- rfsrc(Surv(OS.time, OS)~., data = est_dd2,
+                       ntree = 1000, nodesize = rf_nodesize,
+                       splitrule = 'logrank', importance = T, proximity = T, forest = T, seed = seed)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'RSF')
+          result <- rbind(result, cc)
+          riskscore[[paste0('StabSel + ', 'RSF')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + RSF: %s", e$message)))
+
+          # 2nd-stage: CoxBoost
+          tryCatch({
+          message("---StabSel + CoxBoost ---")
+          set.seed(seed)
+          pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                      trace=TRUE, start.penalty = 500, parallel = FALSE)
+          cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                maxstepno = 500, K = 10, type = "verweij",  penalty = pen$penalty)
+          fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                          stepno = cv.res$optimal.step, penalty = pen$penalty)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x[, -c(1, 2)], newtime = x[, 1],  newstatus = x[, 2], type = "lp")))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'CoxBoost')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('StabSel + ', 'CoxBoost')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + CoxBoost: %s", e$message)))
+
+          # 2nd-stage: Enet
+          tryCatch({
+          message("---StabSel + Enet ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          for (alpha in seq(0.1, 0.9, 0.1)) {
+            set.seed(seed)
+            fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha, nfolds = 10)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('StabSel + ', 'Enet', '[\u03b1=', alpha, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('StabSel + ', 'Enet', '[\u03b1=', alpha, ']')]] <- rs
+          }
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + Enet: %s", e$message)))
+
+          # 2nd-stage: GBM
+          tryCatch({
+          message("---StabSel + GBM ---")
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = 10000, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          best <- which.min(fit$cv.error)
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = best, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'GBM')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('StabSel + ', 'GBM')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + GBM: %s", e$message)))
+
+          # 2nd-stage: Lasso
+          tryCatch({
+          message("---StabSel + Lasso ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold = 10, family = "cox", alpha = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'Lasso')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('StabSel + ', 'Lasso')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + Lasso: %s", e$message)))
+
+          # 2nd-stage: plsRcox
+          tryCatch({
+          message("---StabSel + plsRcox ---")
+          set.seed(seed)
+          cv.plsRcox.res = cv.plsRcox(list(x = est_dd2[, rid], time = est_dd2$OS.time, status = est_dd2$OS), nt = 10, verbose = FALSE)
+          fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1, 2)])))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'plsRcox')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('StabSel + ', 'plsRcox')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + plsRcox: %s", e$message)))
+
+          # 2nd-stage: SuperPC
+          tryCatch({
+          message("---StabSel + SuperPC ---")
+          data <- list(x = t(est_dd2[, -c(1, 2)]), y = est_dd2$OS.time,
+                       censoring.status = est_dd2$OS,
+                       featurenames = colnames(est_dd2)[-c(1, 2)])
+          set.seed(seed)
+          fit <- superpc.train(data = data, type = 'survival', s0.perc = 0.5)
+          repeat {
+            tryCatch({
+              cv.fit <- superpc.cv(fit, data, n.threshold = 20, n.fold = 10,
+                                   n.components = 3, min.features = 2,
+                                   max.features = nrow(data$x),
+                                   compute.fullcv = TRUE, compute.preval =TRUE)
+              break
+            }, error = function(e) {
+              cat("Error:", conditionMessage(e), "\n")
+              cat("Retrying...\n")
+              Sys.sleep(1)
+            })
+          }
+          rs <- lapply(val_dd_list2, function(w){
+            test <- list(x = t(w[, -c(1, 2)]), y = w$OS.time, censoring.status=w$OS, featurenames = colnames(w)[-c(1, 2)])
+            ff <- superpc.predict(fit, data, test, threshold = cv.fit$thresholds[which.max(cv.fit[["scor"]][1, ])], n.components = 1)
+            rr <- as.numeric(ff$v.pred)
+            rr2 <- cbind(w[, 1:2], RS = rr)
+            return(rr2)
+          })
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'SuperPC')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('StabSel + ', 'SuperPC')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + SuperPC: %s", e$message)))
+
+          # 2nd-stage: survival-SVM
+          tryCatch({
+          message("---StabSel + survival-SVM ---")
+          fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=as.numeric(predict(fit, x)$predicted))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'survival-SVM')
+          result <- rbind(result,cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('StabSel + ', 'survival-SVM')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + survival-SVM: %s", e$message)))
+
+          # 2nd-stage: Ridge
+          tryCatch({
+          message("---StabSel + Ridge ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold=10, family = "cox", alpha = 0)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('StabSel + ', 'Ridge')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('StabSel + ', 'Ridge')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + Ridge: %s", e$message)))
+
+          # 2nd-stage: StepCox
+          tryCatch({
+          for (direction in c("both", "backward", "forward")) {
+            message(paste0('---StabSel + StepCox', '[', direction, ']---'))
+            fit <- step(coxph(Surv(OS.time, OS)~., est_dd2), direction = direction)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=predict(fit, type = 'risk', newdata = x))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('StabSel + ', 'StepCox', '[', direction, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('StabSel + ', 'StepCox', '[', direction, ']')]] <- rs
+          }
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + StepCox: %s", e$message)))
+
+
+
+          # 2nd-stage: Alasso
+          tryCatch({
+          message("---StabSel + Alasso ---")
+          set.seed(seed)
+          x_train <- as.matrix(est_dd2[, -c(1, 2)])
+          y_train <- Surv(est_dd2$OS.time, est_dd2$OS)
+          init_fit <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 0, nfolds = 10)
+          init_coef <- as.numeric(coef(init_fit, s = "lambda.min"))
+          penalty_wts <- 1 / (abs(init_coef) + 1e-8)
+          fit_alasso <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 1,
+                             nfolds = 10, penalty.factor = penalty_wts)
+          feature.ac <- fit_alasso$glmnet.fit$beta@Dimnames[[1]]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(
+              predict(fit_alasso, type = "link", newx = as.matrix(x[, feature.ac]),
+                      s = fit_alasso$lambda.min)
+            ))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "StabSel + Alasso"
+          result <- rbind(result, cc)
+          riskscore[["StabSel + Alasso"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + Alasso: %s", e$message)))
+
+          # 2nd-stage: ORSF
+          message("---StabSel + ORSF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_orsf <- aorsf::orsf(
+              formula = Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              n_tree = 500
+            )
+            feature.ac <- names(fit_orsf$data$types)
+            rs <- lapply(val_dd_list2, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit_orsf, new_data = x)))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "StabSel + ORSF"
+            result <- rbind(result, cc)
+            riskscore[["StabSel + ORSF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + ORSF: %s", e$message)))
+
+          # 2nd-stage: CIF
+          message("---StabSel + CIF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_cif <- party::cforest(
+              Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              controls = party::cforest_control(ntree = 500)
+            )
+            rs <- lapply(val_dd_list2, function(x) {
+              preds <- as.numeric(predict(fit_cif, newdata = x, type = "response"))
+              preds[is.infinite(preds) | is.nan(preds)] <- NA
+              cbind(x[, 1:2], RS = preds)
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              complete <- x[complete.cases(x), ]
+              if (nrow(complete) < 5) return(NA_real_)
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, complete))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "StabSel + CIF"
+            result <- rbind(result, cc)
+            riskscore[["StabSel + CIF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + CIF: %s", e$message)))
+
+          # 2nd-stage: mboost
+          tryCatch({
+          message("---StabSel + mboost ---")
+          set.seed(seed)
+          surv_obj <- Surv(est_dd2$OS.time, est_dd2$OS)
+          fmla <- as.formula(paste("surv_obj ~", paste(
+            paste0("`", colnames(est_dd2)[-c(1, 2)], "`"), collapse = "+"
+          )))
+          fit_mboost <- mboost::mboost(
+            fmla, data = est_dd2[, -c(1, 2)],
+            family = mboost::CoxPH(),
+            control = mboost::boost_control(mstop = 200, nu = 0.1)
+          )
+          cv_res <- mboost::cvrisk(fit_mboost, folds = mboost::cv(model.weights(fit_mboost), type = "kfold", B = 10))
+          fit_mboost[mstop(cv_res)]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(predict(fit_mboost, newdata = x[, -c(1, 2)], type = "link")))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "StabSel + mboost"
+          result <- rbind(result, cc)
+          riskscore[["StabSel + mboost"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] StabSel + mboost: %s", e$message)))
+
+
+
+        } # end val_dd_list2 else
+        } # end est_dd2 else
+
+      } else {
+        warning('Stability Selection selected fewer than 2 features; skipping StabSel combination stage')
+      }
+
+      # --- NEW: UniCindex first-stage selector (replaces MRMR to avoid mRMRe segfault) ---
+      message("---NEW: UniCindex feature selection ---")
+      ml.res[["MRMR-feature-sel"]] <- tryCatch({
+        set.seed(seed)
+        genes <- colnames(est_dd[, -c(1, 2)])
+        message(sprintf("  [DEBUG] est_dd dim: %d x %d, num genes: %d", nrow(est_dd), ncol(est_dd), length(genes)))
+        cidx_v <- sapply(genes, function(g) {
+          tryCatch({
+            fit_c <- coxph(Surv(OS.time, OS) ~ ., data = est_dd[, c('OS.time', 'OS', g)])
+            unname(summary(fit_c)$concordance[1])
+          }, error = function(e) NA_real_)
+        })
+        cidx_v <- cidx_v[!is.na(cidx_v)]
+        result_genes <- sort(cidx_v, decreasing = TRUE)[1:min(20, length(cidx_v))]
+        message(sprintf("  [DEBUG] UniCindex selected %d genes", length(result_genes)))
+        result_genes
+      }, error = function(e) {
+        message(sprintf("  [WARN] UniCindex selector failed: %s", e$message))
+        NULL
+      })
+      mrmr_sel <- ml.res[["MRMR-feature-sel"]]
+      if (!is.null(mrmr_sel) && is.numeric(mrmr_sel)) mrmr_sel <- names(mrmr_sel)
+
+      if (!is.null(mrmr_sel) && length(mrmr_sel) > 1) {
+
+        rid <- mrmr_sel
+        message(sprintf("  [DEBUG] MRMR second-stage: %d genes, checking train_data cols...", length(rid)))
+        message(sprintf("  [DEBUG] train_data class: %s, ncol: %d", class(train_data)[1], ncol(train_data)))
+        missing_cols <- setdiff(rid, colnames(train_data))
+        if (length(missing_cols) > 0) {
+          message(sprintf("  [ERROR] Missing columns in train_data: %s", paste(head(missing_cols, 5), collapse=", ")))
+        } else {
+          message("  [DEBUG] All rid columns found in train_data")
+        }
+        est_dd2 <- tryCatch({
+          train_data[, c('OS.time', 'OS', rid)]
+        }, error = function(e) {
+          message(sprintf("  [ERROR] est_dd2 creation failed: %s", e$message))
+          message(sprintf("  [ERROR] rid head: %s", paste(head(rid, 5), collapse=", ")))
+          NULL
+        })
+        if (is.null(est_dd2)) {
+          warning("MRMR: est_dd2 creation failed, skipping MRMR combinations")
+        } else {
+          message(sprintf("  [DEBUG] est_dd2 created: %d x %d", nrow(est_dd2), ncol(est_dd2)))
+          val_dd_list2 <- tryCatch({
+            lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
+          }, error = function(e) {
+            message(sprintf("  [ERROR] val_dd_list2 creation failed: %s", e$message))
+            NULL
+          })
+          if (is.null(val_dd_list2)) {
+            warning("MRMR: val_dd_list2 creation failed, skipping MRMR combinations")
+          } else {
+
+          # 2nd-stage: RSF
+          tryCatch({
+          message("---MRMR + RSF ---")
+          set.seed(seed)
+          fit <- rfsrc(Surv(OS.time, OS)~., data = est_dd2,
+                       ntree = 1000, nodesize = rf_nodesize,
+                       splitrule = 'logrank', importance = T, proximity = T, forest = T, seed = seed)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'RSF')
+          result <- rbind(result, cc)
+          riskscore[[paste0('MRMR + ', 'RSF')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + RSF: %s", e$message)))
+
+          # 2nd-stage: CoxBoost
+          tryCatch({
+          message("---MRMR + CoxBoost ---")
+          set.seed(seed)
+          pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                      trace=TRUE, start.penalty = 500, parallel = FALSE)
+          cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                                maxstepno = 500, K = 10, type = "verweij",  penalty = pen$penalty)
+          fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
+                          stepno = cv.res$optimal.step, penalty = pen$penalty)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x[, -c(1, 2)], newtime = x[, 1],  newstatus = x[, 2], type = "lp")))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'CoxBoost')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('MRMR + ', 'CoxBoost')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + CoxBoost: %s", e$message)))
+
+          # 2nd-stage: Enet
+          tryCatch({
+          message("---MRMR + Enet ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          for (alpha in seq(0.1, 0.9, 0.1)) {
+            set.seed(seed)
+            fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha, nfolds = 10)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('MRMR + ', 'Enet', '[\u03b1=', alpha, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('MRMR + ', 'Enet', '[\u03b1=', alpha, ']')]] <- rs
+          }
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + Enet: %s", e$message)))
+
+          # 2nd-stage: GBM
+          tryCatch({
+          message("---MRMR + GBM ---")
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = 10000, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          best <- which.min(fit$cv.error)
+          set.seed(seed)
+          fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd2, distribution = 'coxph',
+                     n.trees = best, interaction.depth = 3, n.minobsinnode = 10,
+                     shrinkage = 0.001, cv.folds = 10, n.cores = cores_for_parallel)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'GBM')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('MRMR + ', 'GBM')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + GBM: %s", e$message)))
+
+          # 2nd-stage: Lasso
+          tryCatch({
+          message("---MRMR + Lasso ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold = 10, family = "cox", alpha = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'Lasso')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('MRMR + ', 'Lasso')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + Lasso: %s", e$message)))
+
+          # 2nd-stage: plsRcox
+          tryCatch({
+          message("---MRMR + plsRcox ---")
+          set.seed(seed)
+          cv.plsRcox.res = cv.plsRcox(list(x = est_dd2[, rid], time = est_dd2$OS.time, status = est_dd2$OS), nt = 10, verbose = FALSE)
+          fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1, 2)])))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'plsRcox')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('MRMR + ', 'plsRcox')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + plsRcox: %s", e$message)))
+
+          # 2nd-stage: SuperPC
+          tryCatch({
+          message("---MRMR + SuperPC ---")
+          data <- list(x = t(est_dd2[, -c(1, 2)]), y = est_dd2$OS.time,
+                       censoring.status = est_dd2$OS,
+                       featurenames = colnames(est_dd2)[-c(1, 2)])
+          set.seed(seed)
+          fit <- superpc.train(data = data, type = 'survival', s0.perc = 0.5)
+          repeat {
+            tryCatch({
+              cv.fit <- superpc.cv(fit, data, n.threshold = 20, n.fold = 10,
+                                   n.components = 3, min.features = 2,
+                                   max.features = nrow(data$x),
+                                   compute.fullcv = TRUE, compute.preval =TRUE)
+              break
+            }, error = function(e) {
+              cat("Error:", conditionMessage(e), "\n")
+              cat("Retrying...\n")
+              Sys.sleep(1)
+            })
+          }
+          rs <- lapply(val_dd_list2, function(w){
+            test <- list(x = t(w[, -c(1, 2)]), y = w$OS.time, censoring.status=w$OS, featurenames = colnames(w)[-c(1, 2)])
+            ff <- superpc.predict(fit, data, test, threshold = cv.fit$thresholds[which.max(cv.fit[["scor"]][1, ])], n.components = 1)
+            rr <- as.numeric(ff$v.pred)
+            rr2 <- cbind(w[, 1:2], RS = rr)
+            return(rr2)
+          })
+          cc <- data.frame(Cindex=sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'SuperPC')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('MRMR + ', 'SuperPC')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + SuperPC: %s", e$message)))
+
+          # 2nd-stage: survival-SVM
+          tryCatch({
+          message("---MRMR + survival-SVM ---")
+          fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=as.numeric(predict(fit, x)$predicted))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'survival-SVM')
+          result <- rbind(result,cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('MRMR + ', 'survival-SVM')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + survival-SVM: %s", e$message)))
+
+          # 2nd-stage: Ridge
+          tryCatch({
+          message("---MRMR + Ridge ---")
+          x1 <- as.matrix(est_dd2[, rid])
+          x2 <- as.matrix(Surv(est_dd2$OS.time, est_dd2$OS))
+          set.seed(seed)
+          fit = cv.glmnet(x1, x2, nfold=10, family = "cox", alpha = 0)
+          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
+          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rownames_to_column('ID')
+          cc$Model <- paste0('MRMR + ', 'Ridge')
+          result <- rbind(result, cc)
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          riskscore[[paste0('MRMR + ', 'Ridge')]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + Ridge: %s", e$message)))
+
+          # 2nd-stage: StepCox
+          tryCatch({
+          for (direction in c("both", "backward", "forward")) {
+            message(paste0('---MRMR + StepCox', '[', direction, ']---'))
+            fit <- step(coxph(Surv(OS.time, OS)~., est_dd2), direction = direction)
+            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=predict(fit, type = 'risk', newdata = x))})
+            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rownames_to_column('ID')
+            cc$Model <- paste0('MRMR + ', 'StepCox', '[', direction, ']')
+            result <- rbind(result, cc)
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            riskscore[[paste0('MRMR + ', 'StepCox', '[', direction, ']')]] <- rs
+          }
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + StepCox: %s", e$message)))
+
+
+
+          # 2nd-stage: Alasso
+          tryCatch({
+          message("---MRMR + Alasso ---")
+          set.seed(seed)
+          x_train <- as.matrix(est_dd2[, -c(1, 2)])
+          y_train <- Surv(est_dd2$OS.time, est_dd2$OS)
+          init_fit <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 0, nfolds = 10)
+          init_coef <- as.numeric(coef(init_fit, s = "lambda.min"))
+          penalty_wts <- 1 / (abs(init_coef) + 1e-8)
+          fit_alasso <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 1,
+                             nfolds = 10, penalty.factor = penalty_wts)
+          feature.ac <- fit_alasso$glmnet.fit$beta@Dimnames[[1]]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(
+              predict(fit_alasso, type = "link", newx = as.matrix(x[, feature.ac]),
+                      s = fit_alasso$lambda.min)
+            ))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "MRMR + Alasso"
+          result <- rbind(result, cc)
+          riskscore[["MRMR + Alasso"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + Alasso: %s", e$message)))
+
+          # 2nd-stage: ORSF
+          message("---MRMR + ORSF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_orsf <- aorsf::orsf(
+              formula = Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              n_tree = 500
+            )
+            feature.ac <- names(fit_orsf$data$types)
+            rs <- lapply(val_dd_list2, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit_orsf, new_data = x)))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "MRMR + ORSF"
+            result <- rbind(result, cc)
+            riskscore[["MRMR + ORSF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + ORSF: %s", e$message)))
+
+          # 2nd-stage: CIF
+          message("---MRMR + CIF ---")
+          tryCatch({
+            set.seed(seed)
+            fit_cif <- party::cforest(
+              Surv(OS.time, OS) ~ .,
+              data = est_dd2,
+              controls = party::cforest_control(ntree = 500)
+            )
+            rs <- lapply(val_dd_list2, function(x) {
+              preds <- as.numeric(predict(fit_cif, newdata = x, type = "response"))
+              preds[is.infinite(preds) | is.nan(preds)] <- NA
+              cbind(x[, 1:2], RS = preds)
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              complete <- x[complete.cases(x), ]
+              if (nrow(complete) < 5) return(NA_real_)
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, complete))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "MRMR + CIF"
+            result <- rbind(result, cc)
+            riskscore[["MRMR + CIF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + CIF: %s", e$message)))
+
+          # 2nd-stage: mboost
+          tryCatch({
+          message("---MRMR + mboost ---")
+          set.seed(seed)
+          surv_obj <- Surv(est_dd2$OS.time, est_dd2$OS)
+          fmla <- as.formula(paste("surv_obj ~", paste(
+            paste0("`", colnames(est_dd2)[-c(1, 2)], "`"), collapse = "+"
+          )))
+          fit_mboost <- mboost::mboost(
+            fmla, data = est_dd2[, -c(1, 2)],
+            family = mboost::CoxPH(),
+            control = mboost::boost_control(mstop = 200, nu = 0.1)
+          )
+          cv_res <- mboost::cvrisk(fit_mboost, folds = mboost::cv(model.weights(fit_mboost), type = "kfold", B = 10))
+          fit_mboost[mstop(cv_res)]
+          rs <- lapply(val_dd_list2, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(predict(fit_mboost, newdata = x[, -c(1, 2)], type = "link")))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "MRMR + mboost"
+          result <- rbind(result, cc)
+          riskscore[["MRMR + mboost"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] MRMR + mboost: %s", e$message)))
+
+
+
+          } # end val_dd_list2 else
+        } # end est_dd2 else
+
+      } else {
+        warning('MRMR selected fewer than 2 features; skipping MRMR combination stage')
+      }
+
+      # --- NEW: Ensemble Top-N Voting ---
+      ensemble_rs <- NULL
+      if (ensemble_top_n > 0 && nrow(result) > 0) {
+        message(paste0("--- Computing Top-", ensemble_top_n, " Ensemble Risk Scores ---"))
+
+        # Get training C-index for each model
+        train_cindex <- result[result$ID == names(list_train_vali_Data)[1], ]
+        train_cindex <- train_cindex[order(-train_cindex$Cindex), ]
+
+        # Select Top-N models
+        n_select <- min(ensemble_top_n, nrow(train_cindex))
+        top_models <- train_cindex$Model[1:n_select]
+        top_weights <- train_cindex$Cindex[1:n_select]
+
+        message(paste0("Top-", n_select, " models: ", paste(top_models, collapse=", ")))
+
+        ensemble_rs <- list()
+        for (cohort_name in names(list_train_vali_Data)) {
+          # Initialize weighted risk score
+          n_patients <- nrow(list_train_vali_Data[[cohort_name]])
+          weighted_rs <- rep(0, n_patients)
+          total_weight <- 0
+
+          for (m_idx in seq_along(top_models)) {
+            model_name <- top_models[m_idx]
+            w <- top_weights[m_idx]
+
+            if (!is.null(riskscore[[model_name]]) &&
+                !is.null(riskscore[[model_name]][[cohort_name]])) {
+              raw_rs <- riskscore[[model_name]][[cohort_name]]$RS
+              rs_range <- max(raw_rs) - min(raw_rs)
+              if (rs_range > 0) {
+                norm_rs <- (raw_rs - min(raw_rs)) / rs_range
+              } else {
+                norm_rs <- rep(0, length(raw_rs))
+              }
+              weighted_rs <- weighted_rs + w * norm_rs
+              total_weight <- total_weight + w
+            }
+          }
+
+          if (total_weight > 0) {
+            ensemble_rs[[cohort_name]] <- weighted_rs / total_weight
+          }
+        }
+
+        # Compute ensemble C-index
+        ensemble_cindex <- data.frame()
+        for (cohort_name in names(ensemble_rs)) {
+          tmp_df <- data.frame(
+            ID = list_train_vali_Data[[cohort_name]]$ID,
+            OS.time = as.numeric(list_train_vali_Data[[cohort_name]]$OS.time),
+            OS = as.numeric(list_train_vali_Data[[cohort_name]]$OS),
+            RS = ensemble_rs[[cohort_name]]
+          )
+          ci <- as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, tmp_df))$concordance[1])
+          ensemble_cindex <- rbind(ensemble_cindex,
+            data.frame(ID = cohort_name, Cindex = ci, Model = paste0("Ensemble-Top", n_select)))
+        }
+        result <- rbind(result, ensemble_cindex)
+        message("Ensemble C-index: ", paste(ensemble_cindex$Cindex, collapse=", "))
+      }
+
       # Return the result --------------------------------------------------------------
 
-      result.cindex.fit = list('Cindex.res'=result, 'ml.res'=ml.res, 'riskscore' = riskscore, 'Sig.genes' = pre_var)
-
+      result.cindex.fit <- list('Cindex.res' = result, 'ml.res' = ml.res,
+                                 'riskscore' = riskscore, 'Sig.genes' = pre_var)
+      if (!is.null(ensemble_rs)) {
+        result.cindex.fit[['Ensemble_riskscore']] <- ensemble_rs
+      }
       return(result.cindex.fit)
 
 
@@ -2477,7 +4068,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         message('--- Start CoxBoost ---')
         set.seed(seed)
         pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                    trace = TRUE, start.penalty = 500, parallel = T)
+                                    trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
         cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]), maxstepno = 500, K = 10, type = "verweij", penalty = pen$penalty)
@@ -2696,11 +4287,138 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
         return(result.cindex.fit)
 
+
+
+
+      # -----Alasso (single mode) ---------------------------------------------------------------
+      } else if (single_ml %in% 'Alasso') {
+        message('--- Start Alasso ---')
+        ml.res[["Alasso"]] <- safe_run_algo("Alasso", {
+          set.seed(seed)
+          x_train <- as.matrix(est_dd[, -c(1, 2)])
+          y_train <- Surv(est_dd$OS.time, est_dd$OS)
+          init_fit <- glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 0, nfolds = 10)
+          init_coef <- as.numeric(coef(init_fit, s = "lambda.min"))
+          penalty_wts <- 1 / (abs(init_coef) + 1e-8)
+          glmnet::cv.glmnet(x_train, y_train, family = "cox", alpha = 1,
+                             nfolds = 10, penalty.factor = penalty_wts)
+        })
+        if (!is.null(ml.res[["Alasso"]])) {
+          tryCatch({
+            fit_alasso <- ml.res[["Alasso"]]
+            feature.ac <- fit_alasso$glmnet.fit$beta@Dimnames[[1]]
+            rs <- lapply(val_dd_list, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(
+                predict(fit_alasso, type = "link", newx = as.matrix(x[, feature.ac]),
+                        s = fit_alasso$lambda.min)
+              ))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "Alasso"
+            result <- rbind(result, cc)
+            riskscore[["Alasso"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] Alasso: %s", e$message)))
+        }
+        result.cindex.fit <- list('Cindex.res'=result, 'ml.res'=ml.res, 'riskscore'=riskscore, 'Sig.genes'=pre_var)
+        return(result.cindex.fit)
+
+      # -----ORSF (single mode) ---------------------------------------------------------------
+      } else if (single_ml %in% 'ORSF') {
+        message('--- Start ORSF ---')
+        ml.res[["ORSF"]] <- safe_run_algo("ORSF", {
+          set.seed(seed)
+          aorsf::orsf(formula = Surv(OS.time, OS) ~ ., data = est_dd, n_tree = 500)
+        })
+        if (!is.null(ml.res[["ORSF"]])) {
+          tryCatch({
+            fit_orsf <- ml.res[["ORSF"]]
+            rs <- lapply(val_dd_list, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit_orsf, new_data = x)))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "ORSF"
+            result <- rbind(result, cc)
+            riskscore[["ORSF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] ORSF: %s", e$message)))
+        }
+        result.cindex.fit <- list('Cindex.res'=result, 'ml.res'=ml.res, 'riskscore'=riskscore, 'Sig.genes'=pre_var)
+        return(result.cindex.fit)
+
+      # -----CIF (single mode) ---------------------------------------------------------------
+      } else if (single_ml %in% 'CIF') {
+        message('--- Start CIF ---')
+        ml.res[["CIF"]] <- safe_run_algo("CIF", {
+          set.seed(seed)
+          party::cforest(Surv(OS.time, OS) ~ ., data = est_dd,
+                         controls = party::cforest_control(ntree = 500))
+        })
+        if (!is.null(ml.res[["CIF"]])) {
+          tryCatch({
+            fit_cif <- ml.res[["CIF"]]
+            rs <- lapply(val_dd_list, function(x) {
+              preds <- as.numeric(predict(fit_cif, newdata = x, type = "response"))
+              preds[is.infinite(preds) | is.nan(preds)] <- NA
+              cbind(x[, 1:2], RS = preds)
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+            cc <- data.frame(Cindex = sapply(rs, function(x) {
+              complete <- x[complete.cases(x), ]
+              if (nrow(complete) < 5) return(NA_real_)
+              as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, complete))$concordance[1])
+            })) %>% rownames_to_column('ID')
+            cc$Model <- "CIF"
+            result <- rbind(result, cc)
+            riskscore[["CIF"]] <- rs
+          }, error = function(e) warning(sprintf("[SKIP] CIF: %s", e$message)))
+        }
+        result.cindex.fit <- list('Cindex.res'=result, 'ml.res'=ml.res, 'riskscore'=riskscore, 'Sig.genes'=pre_var)
+        return(result.cindex.fit)
+
+      # -----mboost (single mode) ---------------------------------------------------------------
+      } else if (single_ml %in% 'mboost') {
+        message('--- Start mboost ---')
+        ml.res[["mboost"]] <- safe_run_algo("mboost", {
+          set.seed(seed)
+          surv_obj <- Surv(est_dd$OS.time, est_dd$OS)
+          fmla <- as.formula(paste("surv_obj ~", paste(
+            paste0("`", colnames(est_dd)[-c(1, 2)], "`"), collapse = "+"
+          )))
+          fit_mboost <- mboost::mboost(fmla, data = est_dd[, -c(1, 2)],
+                                       family = mboost::CoxPH(),
+                                       control = mboost::boost_control(mstop = 200, nu = 0.1))
+          cv_res <- mboost::cvrisk(fit_mboost, folds = mboost::cv(model.weights(fit_mboost), type = "kfold", B = 10))
+          fit_mboost[mstop(cv_res)]
+        })
+        if (!is.null(ml.res[["mboost"]])) {
+          fit_mboost <- ml.res[["mboost"]]
+          rs <- lapply(val_dd_list, function(x) {
+            cbind(x[, 1:2], RS = as.numeric(predict(fit_mboost, newdata = x[, -c(1, 2)], type = "link")))
+          })
+          rs <- returnIDtoRS(rs.table.list = rs, rawtableID = list_train_vali_Data)
+          cc <- data.frame(Cindex = sapply(rs, function(x) {
+            as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+          })) %>% rownames_to_column('ID')
+          cc$Model <- "mboost"
+          result <- rbind(result, cc)
+          riskscore[["mboost"]] <- rs
+        }
+        result.cindex.fit <- list('Cindex.res'=result, 'ml.res'=ml.res, 'riskscore'=riskscore, 'Sig.genes'=pre_var)
+        return(result.cindex.fit)
+
+
+      } else {
+        warning(paste0("Unknown single_ml value: ", single_ml))
+        result.cindex.fit <- list('Cindex.res'=result, 'ml.res'=ml.res, 'riskscore'=riskscore, 'Sig.genes'=pre_var)
+        return(result.cindex.fit)
       }
-      # -----Finish and return the fit -------------------------------------------------------------------
 
       message('--- Finish and return the fit ---')
-
 
 
     } else if (mode == 'double' &
@@ -2831,7 +4549,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
             set.seed(seed)
             pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
-                                        trace=TRUE, start.penalty = 500, parallel = T)
+                                        trace=TRUE, start.penalty = 500, parallel = FALSE)
 
 
             cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
@@ -3195,7 +4913,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             message( paste0('---3.StepCox', '[', direction_for_stepcox, ']', ' + CoxBoost ---'))
 
             pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
-                                        trace=TRUE, start.penalty = 500, parallel = T)
+                                        trace=TRUE, start.penalty = 500, parallel = FALSE)
             cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
                                   maxstepno = 500, K = 10 , type = "verweij", penalty = pen$penalty)
             fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
@@ -3588,7 +5306,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           set.seed(seed)
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
           cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -3630,7 +5348,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           set.seed(seed)
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
           cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -3686,7 +5404,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           set.seed(seed)
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
 
@@ -3734,7 +5452,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           set.seed(seed)
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
           cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
                                 maxstepno = 500, K = 10, type = "verweij", penalty = pen$penalty)
@@ -3778,7 +5496,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           set.seed(seed)
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
           cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -3826,7 +5544,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           set.seed(seed)
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
           cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -3867,7 +5585,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           set.seed(seed)
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
 
@@ -3938,7 +5656,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           message(paste0('--- ',double_ml1, ' + ',double_ml2,' ---' ))
 
           pen <- optimCoxBoostPenalty(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
-                                      trace = TRUE, start.penalty = 500, parallel = T)
+                                      trace = FALSE, start.penalty = 500, parallel = FALSE)
 
 
           cv.res <- cv.CoxBoost(est_dd[, 'OS.time'], est_dd[, 'OS'], as.matrix(est_dd[, -c(1,2)]),
@@ -4003,7 +5721,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
             set.seed(seed)
             pen <- optimCoxBoostPenalty(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
-                                        trace = TRUE, start.penalty = 500, parallel = T)
+                                        trace = FALSE, start.penalty = 500, parallel = FALSE)
 
             cv.res <- cv.CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1,2)]),
                                   maxstepno = 500, K = 10, type = "verweij", penalty = pen$penalty)
@@ -4355,14 +6073,14 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
 
 
-}
+    }
 
 
 
 
 
 
- message("--- The analysis has been completed ---")
+    message("--- The analysis has been completed ---")
 
 
   } else {

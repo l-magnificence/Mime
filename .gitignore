@@ -3,3 +3,13 @@
 .RData
 .Ruserdata
 inst/doc
+
+# Test outputs
+test_output*.log
+Rplots.pdf
+
+# Claude Code
+.claude/
+
+# Temp files
+*.tmp
