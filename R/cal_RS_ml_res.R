@@ -45,6 +45,10 @@ cal_RS_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, å‡½æ
     library(ggbreak)
     library(mixOmics)
     library(data.table)
+    library(aorsf)
+    library(party)
+    library(mboost)
+    library(xgboost)
 
 
 
@@ -400,6 +404,59 @@ cal_RS_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, å‡½æ
           rs <- returnIDtoRS(rs.table.list = rs, rawtableID = inputmatrix.list)
 
           riskscore[[i]] <- rs
+        }
+
+        # NEW: Alasso predict
+        for (i in ml.names[grep("Alasso", ml.names, fixed = TRUE)]) {
+          if (!is.null(res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]])) {
+            print(i)
+            fit <- res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]]
+            feature.ac <- fit$glmnet.fit$beta@Dimnames[[1]]
+            rs <- lapply(val_dd_list, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "link", newx = as.matrix(x[, feature.ac]), s = fit$lambda.min)))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = inputmatrix.list)
+            riskscore[[i]] <- rs
+          }
+        }
+
+        # NEW: ORSF predict
+        for (i in ml.names[grep("ORSF", ml.names, fixed = TRUE)]) {
+          if (!is.null(res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]])) {
+            print(i)
+            fit <- res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]]
+            rs <- lapply(val_dd_list, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit, new_data = x)))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = inputmatrix.list)
+            riskscore[[i]] <- rs
+          }
+        }
+
+        # NEW: CIF predict
+        for (i in ml.names[grep("CIF", ml.names, fixed = TRUE)]) {
+          if (!is.null(res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]])) {
+            print(i)
+            fit <- res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]]
+            rs <- lapply(val_dd_list, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x, type = "response")))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = inputmatrix.list)
+            riskscore[[i]] <- rs
+          }
+        }
+
+        # NEW: mboost predict
+        for (i in ml.names[grep("mboost", ml.names, fixed = TRUE)]) {
+          if (!is.null(res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]])) {
+            print(i)
+            fit <- res.by.ML.Dev.Prog.Sig[["ml.res"]][[i]]
+            rs <- lapply(val_dd_list, function(x) {
+              cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x[, -c(1, 2)], type = "link")))
+            })
+            rs <- returnIDtoRS(rs.table.list = rs, rawtableID = inputmatrix.list)
+            riskscore[[i]] <- rs
+          }
         }
 
         return(riskscore)
