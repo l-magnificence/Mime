@@ -6,6 +6,7 @@ inst/doc
 
 # Test outputs
 test_output*.log
+test_results/
 Rplots.pdf
 
 # Claude Code

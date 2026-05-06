@@ -908,13 +908,20 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       if(T){
         rid <- tryCatch({
           fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
-          names(coef(fit))
+          cf <- coef(fit)
+          if (any(!is.finite(cf))) {
+            warning(sprintf("[SKIP] StepCox[%s] + combinations: non-finite coefficients", direction))
+            NULL
+          } else {
+            names(cf)
+          }
         }, error = function(e) {
           warning(sprintf("[SKIP] StepCox[%s] + combinations failed: %s", direction, e$message))
           NULL
         })
 
         if(!is.null(rid) && length(rid)>1) {
+          tryCatch({
 
           est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
@@ -1137,6 +1144,9 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           riskscore[[  paste0('StepCox', '[', direction, ']', ' + survival-SVM')]] = rs
 
+          }, error = function(e) {
+            warning(sprintf("[SKIP] StepCox[%s] combinations failed: %s", direction, e$message))
+          })
         } else {
           warning('The number of seleted candidate gene by StepCox, the first machine learning algorithm, is less than 2')
         }
@@ -1149,13 +1159,20 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       if(T){
         rid <- tryCatch({
           fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
-          names(coef(fit))
+          cf <- coef(fit)
+          if (any(!is.finite(cf))) {
+            warning(sprintf("[SKIP] StepCox[%s] + combinations: non-finite coefficients", direction))
+            NULL
+          } else {
+            names(cf)
+          }
         }, error = function(e) {
           warning(sprintf("[SKIP] StepCox[%s] + combinations failed: %s", direction, e$message))
           NULL
         })
 
         if(!is.null(rid) && length(rid)>1) {
+          tryCatch({
 
           est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
@@ -1376,6 +1393,9 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           riskscore[[  paste0('StepCox', '[', direction, ']', ' + survival-SVM')]] = rs
 
+          }, error = function(e) {
+            warning(sprintf("[SKIP] StepCox[%s] combinations failed: %s", direction, e$message))
+          })
         } else {
           warning('The number of seleted candidate gene by StepCox, the first machine learning algorithm, is less than 2')
         }
@@ -1389,13 +1409,20 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       if(T){
         rid <- tryCatch({
           fit <- step(coxph(Surv(OS.time, OS)~., est_dd), direction = direction)
-          names(coef(fit))
+          cf <- coef(fit)
+          if (any(!is.finite(cf))) {
+            warning(sprintf("[SKIP] StepCox[%s] + combinations: non-finite coefficients", direction))
+            NULL
+          } else {
+            names(cf)
+          }
         }, error = function(e) {
           warning(sprintf("[SKIP] StepCox[%s] + combinations failed: %s", direction, e$message))
           NULL
         })
 
         if(!is.null(rid) && length(rid)>1) {
+          tryCatch({
 
           est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
@@ -1616,6 +1643,9 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           riskscore[[  paste0('StepCox', '[', direction, ']', ' + survival-SVM')]] = rs
 
+          }, error = function(e) {
+            warning(sprintf("[SKIP] StepCox[%s] combinations failed: %s", direction, e$message))
+          })
         } else {
           warning('The number of seleted candidate gene by StepCox, the first machine learning algorithm, is less than 2')
         }
@@ -1645,6 +1675,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
       riskscore[[ paste0('CoxBoost')]] = rs
 
+      tryCatch({
       ## 4-2.CoxBoost + Enet
 
 
@@ -2008,23 +2039,30 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         warning('The number of seleted candidate gene by CoxBoost, the first machine learning algorithm, is less than 2')
       }
 
+      }, error = function(e) {
+        warning(sprintf("[SKIP] CoxBoost combinations failed: %s", e$message))
+      })
       # 5.plsRcox ---------------------------------------------------------------
       message("---5.plsRcox ---")
 
-      set.seed(seed)
-      cv.plsRcox.res = cv.plsRcox(list(x = est_dd[,pre_var], time = est_dd$OS.time, status = est_dd$OS), nt = 10, verbose = FALSE)
+      tryCatch({
+        set.seed(seed)
+        cv.plsRcox.res = cv.plsRcox(list(x = est_dd[,pre_var], time = est_dd$OS.time, status = est_dd$OS), nt = 10, verbose = FALSE)
 
-      fit <- plsRcox(est_dd[,pre_var], time = est_dd$OS.time, event = est_dd$OS, nt = as.numeric(cv.plsRcox.res[5]))
+        fit <- plsRcox(est_dd[,pre_var], time = est_dd$OS.time, event = est_dd$OS, nt = as.numeric(cv.plsRcox.res[5]))
 
-      rs <- lapply(val_dd_list, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit,type = "lp", newdata = x[, -c(1, 2)])))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time,OS) ~ RS, x))$concordance[1])})) %>%
-        rownames_to_column('ID')
-      cc$Model <- paste0('plsRcox')
-      result <- rbind(result, cc)
-      ml.res[[   paste0('plsRcox')]] = fit
-      rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
+        rs <- lapply(val_dd_list, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit,type = "lp", newdata = x[, -c(1, 2)])))})
+        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time,OS) ~ RS, x))$concordance[1])})) %>%
+          rownames_to_column('ID')
+        cc$Model <- paste0('plsRcox')
+        result <- rbind(result, cc)
+        ml.res[[   paste0('plsRcox')]] = fit
+        rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
 
-      riskscore[[  paste0('plsRcox')]] = rs
+        riskscore[[  paste0('plsRcox')]] = rs
+      }, error = function(e) {
+        warning(sprintf("[SKIP] plsRcox failed: %s", e$message))
+      })
 
       # 6.superpc ---------------------------------------------------------------
       message("---6.superpc ---")
@@ -2068,48 +2106,56 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       # 7.GBM -------------------------------------------------------------------
       message("---7.GBM ---")
 
-      set.seed(seed)
-      fit <- gbm(formula = Surv(OS.time,OS)~., data = est_dd, distribution = 'coxph',
-                 n.trees = 10000,
-                 interaction.depth = 3,
-                 n.minobsinnode = 10,
-                 shrinkage = 0.001,
-                 cv.folds = 10, n.cores = cores_for_parallel)
-      # find index for number trees with minimum CV error
-      best <- which.min(fit$cv.error)
-      set.seed(seed)
-      fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd, distribution = 'coxph',
-                 n.trees = best,
-                 interaction.depth = 3,
-                 n.minobsinnode = 10,
-                 shrinkage = 0.001,
-                 cv.folds = 10, n.cores = cores_for_parallel)
-      rs <- lapply(val_dd_list,function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
-        rownames_to_column('ID')
-      cc$Model <- paste0('GBM')
-      result <- rbind(result, cc)
-      ml.res[[   paste0('GBM')]] = list('fit' =fit , 'best' = best)
-      rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
+      tryCatch({
+        set.seed(seed)
+        fit <- gbm(formula = Surv(OS.time,OS)~., data = est_dd, distribution = 'coxph',
+                   n.trees = 10000,
+                   interaction.depth = 3,
+                   n.minobsinnode = 10,
+                   shrinkage = 0.001,
+                   cv.folds = 10, n.cores = cores_for_parallel)
+        # find index for number trees with minimum CV error
+        best <- which.min(fit$cv.error)
+        set.seed(seed)
+        fit <- gbm(formula = Surv(OS.time, OS)~., data = est_dd, distribution = 'coxph',
+                   n.trees = best,
+                   interaction.depth = 3,
+                   n.minobsinnode = 10,
+                   shrinkage = 0.001,
+                   cv.folds = 10, n.cores = cores_for_parallel)
+        rs <- lapply(val_dd_list,function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
+        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rownames_to_column('ID')
+        cc$Model <- paste0('GBM')
+        result <- rbind(result, cc)
+        ml.res[[   paste0('GBM')]] = list('fit' =fit , 'best' = best)
+        rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
 
-      riskscore[[  paste0('GBM')]] = rs
+        riskscore[[  paste0('GBM')]] = rs
+      }, error = function(e) {
+        warning(sprintf("[SKIP] GBM failed: %s", e$message))
+      })
 
 
 
       # 8.survivalsvm -----------------------------------------------------------
       message("---8.survivalsvm ---")
 
-      fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd, gamma.mu = 1)
-      rs <- lapply(val_dd_list, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x)$predicted))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
-        rownames_to_column('ID')
-      cc$Model <- paste0('survival - SVM')
-      result <- rbind(result, cc)
+      tryCatch({
+        fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd, gamma.mu = 1)
+        rs <- lapply(val_dd_list, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x)$predicted))})
+        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rownames_to_column('ID')
+        cc$Model <- paste0('survival - SVM')
+        result <- rbind(result, cc)
 
-      ml.res[[ paste0('survival - SVM')]] = fit
-      rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
+        ml.res[[ paste0('survival - SVM')]] = fit
+        rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
 
-      riskscore[[  paste0('survival - SVM')]] = rs
+        riskscore[[  paste0('survival - SVM')]] = rs
+      }, error = function(e) {
+        warning(sprintf("[SKIP] survival-SVM failed: %s", e$message))
+      })
 
 
 

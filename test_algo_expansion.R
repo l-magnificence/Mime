@@ -1,9 +1,10 @@
 #!/usr/bin/env Rscript
 # Mime Prognosis Model Algorithm Expansion — 测试脚本
-# 数据: combined_ComBat_corrected.csv
+# 数据: External data/Example.cohort.Rdata (原包自带测试数据)
 # 日期: 2026-05-05
 
-cat("====== Mime 算法扩展测试 ======\n\n")
+cat("====== Mime 算法扩展测试 ======\n")
+cat("数据来源: Example.cohort.Rdata (原包自带)\n\n")
 
 # 设置用户库路径
 user_lib <- file.path(Sys.getenv("USERPROFILE"), "R", "win-library",
@@ -44,82 +45,66 @@ library(survival)
 library(ggplot2)
 
 # ---- 1. 加载数据 ----
-cat("\n[1] 加载数据...\n")
-data_path <- "D:/桌面/大二下/combined_ComBat_corrected.csv"
-raw_data <- read.csv(data_path, row.names = 1, check.names = FALSE)
+cat("\n[1] 加载原包测试数据 (Example.cohort.Rdata)...\n")
+load(file.path(pkg_path, "External data/Example.cohort.Rdata"))
 
-cat("  样本数:", nrow(raw_data), "\n")
-cat("  基因数:", ncol(raw_data) - 2, "(减去 OS.time 和 OS)\n")
-cat("  OS 分布: 死亡(OS=1) =", sum(raw_data$OS == 1),
-    ", 存活(OS=0) =", sum(raw_data$OS == 0), "\n")
+train_data <- list_train_vali_Data$Dataset1
+vali_data  <- list_train_vali_Data$Dataset2
 
-# 添加 ID 列（Mime 要求第一列为 ID）
-raw_data$ID <- rownames(raw_data)
-raw_data <- raw_data[, c("ID", "OS.time", "OS", setdiff(colnames(raw_data), c("ID", "OS.time", "OS")))]
+cat("  训练集: Dataset1,", nrow(train_data), "样本 ×", ncol(train_data), "列\n")
+cat("  验证集: Dataset2,", nrow(vali_data), "样本 ×", ncol(vali_data), "列\n")
+cat("  训练集 OS 分布: 事件(OS=1) =", sum(train_data$OS == 1),
+    ", 删失(OS=0) =", sum(train_data$OS == 0), "\n")
+cat("  验证集 OS 分布: 事件(OS=1) =", sum(vali_data$OS == 1),
+    ", 删失(OS=0) =", sum(vali_data$OS == 0), "\n")
 
-# ---- 1.5 特征预筛选（减少基因数量以加速测试）----
-cat("\n[1.5] 特征预筛选...\n")
+# 特征预筛选（原数据有 ~58000 个基因，太多，需预筛选以控制运行时间）
+cat("\n[1.5] 特征预筛选（训练集）...\n")
+gene_cols <- setdiff(colnames(train_data), c("ID", "OS.time", "OS"))
+cat("  原始基因数:", length(gene_cols), "\n")
 
-# 第一步：按方差筛选，保留变异最大的 top 2000 基因（避免对 16000+ 基因做 Cox 回归导致崩溃）
-gene_vars <- apply(raw_data[, -(1:3)], 2, var, na.rm = TRUE)
+# 按方差筛选 top 2000
+gene_vars <- apply(train_data[, gene_cols], 2, var, na.rm = TRUE)
 gene_vars <- gene_vars[!is.na(gene_vars) & gene_vars > 0]
 top_var_genes <- names(sort(gene_vars, decreasing = TRUE))[1:min(2000, length(gene_vars))]
-cat("  方差筛选后基因数:", length(top_var_genes), "\n")
+cat("  方差筛选后:", length(top_var_genes), "个基因\n")
 
-# 第二步：对 top 2000 基因做单因素 Cox 回归
-library(survival)
+# 单因素 Cox 回归筛选
 cox_pvals <- numeric(length(top_var_genes))
 names(cox_pvals) <- top_var_genes
 for (i in seq_along(top_var_genes)) {
   cox_pvals[i] <- tryCatch({
-    fit <- coxph(Surv(OS.time, OS) ~ ., data = raw_data[, c("OS.time", "OS", top_var_genes[i])])
+    fit <- coxph(Surv(OS.time, OS) ~ ., data = train_data[, c("OS.time", "OS", top_var_genes[i])])
     summary(fit)$coefficients[, "Pr(>|z|)"]
   }, error = function(e) 1)
   if (i %% 500 == 0) cat("    已处理", i, "/", length(top_var_genes), "个基因\n")
 }
-cat("  Cox 回归完成\n")
 
 sig_genes <- names(cox_pvals[cox_pvals < 0.001 & !is.na(cox_pvals)])
-cat("  筛选后基因数 (p<0.001):", length(sig_genes), "\n")
+cat("  Cox 回归筛选 (p<0.001):", length(sig_genes), "个基因\n")
 
 if (length(sig_genes) < 50) {
   sig_genes <- names(cox_pvals[cox_pvals < 0.01 & !is.na(cox_pvals)])
-  cat("  放宽阈值至 p<0.01，基因数:", length(sig_genes), "\n")
+  cat("  放宽至 p<0.01:", length(sig_genes), "个基因\n")
 }
 if (length(sig_genes) < 50) {
   sig_genes <- names(cox_pvals[cox_pvals < 0.05 & !is.na(cox_pvals)])
-  cat("  放宽阈值至 p<0.05，基因数:", length(sig_genes), "\n")
+  cat("  放宽至 p<0.05:", length(sig_genes), "个基因\n")
 }
 if (length(sig_genes) < 20) {
   sig_genes <- names(sort(cox_pvals[!is.na(cox_pvals)]))[1:min(200, length(cox_pvals))]
   cat("  取 top 200 基因\n")
 }
-
-# 上限 200 基因以控制运行时间
 if (length(sig_genes) > 200) {
   sig_genes <- names(sort(cox_pvals[sig_genes]))[1:200]
   cat("  限制最多 200 基因\n")
 }
 
-raw_data <- raw_data[, c("ID", "OS.time", "OS", sig_genes)]
-cat("  最终基因数:", length(sig_genes), "\n")
+# 同步筛选训练集和验证集的基因列
+train_data <- train_data[, c("ID", "OS.time", "OS", sig_genes)]
+vali_data  <- vali_data[,  c("ID", "OS.time", "OS", intersect(sig_genes, colnames(vali_data)))]
+cat("  最终: 训练集", ncol(train_data) - 3, "个基因, 验证集", ncol(vali_data) - 3, "个基因\n")
 
-# ---- 2. 划分训练集和验证集 ----
-cat("\n[2] 划分训练集 (70%) 和验证集 (30%)...\n")
-set.seed(42)
-n <- nrow(raw_data)
-train_idx <- sample(1:n, size = floor(0.7 * n))
-train_data <- raw_data[train_idx, ]
-vali_data <- raw_data[-train_idx, ]
-
-# 重置行名
-rownames(train_data) <- NULL
-rownames(vali_data) <- NULL
-
-cat("  训练集样本数:", nrow(train_data), "\n")
-cat("  验证集样本数:", nrow(vali_data), "\n")
-
-# 构建 list_train_vali_Data（训练集 + 验证集）
 list_train_vali_Data <- list(
   Train = train_data,
   Validation = vali_data
@@ -246,7 +231,7 @@ if (!is.null(res$Ensemble_riskscore)) {
 # ---- 5. 生成图表 ----
 cat("\n[5] 生成图表...\n")
 
-output_dir <- "D:/桌面/大二下/Mime_results"
+output_dir <- file.path(pkg_path, "test_results")
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
 # 5.1 C-index 比较柱状图
