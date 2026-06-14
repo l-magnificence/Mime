@@ -665,7 +665,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
       for (direction in c("both", "backward", "forward")) {
         fit <- step(coxph(Surv(OS.time, OS)~., est_dd2), direction = direction)
-        rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=predict(fit, type = 'risk', newdata = x))})
+        rs <- lapply(val_dd_list2, function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('RSF + ', 'StepCox', '[', direction, ']')
@@ -823,7 +827,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
 
 
-        rs <- lapply(val_dd_list,function(x){cbind(x[, 1:2], RS = predict(fit, type = 'risk', newdata = x))})
+        rs <- lapply(val_dd_list,function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('StepCox', '[', direction, ']')
@@ -1842,7 +1850,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         message( paste0('--- 4.CoxBoost + ', 'StepCox', '[', direction, '] ---'))
 
         fit <- step(coxph(Surv(OS.time,OS)~., est_dd2), direction = direction)
-        rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = predict(fit, type = 'risk', newdata = x))})
+        rs <- lapply(val_dd_list2, function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('CoxBoost + ', 'StepCox', '[', direction, ']')
@@ -2324,7 +2336,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         message( paste0('--- 10.Lasso + ', 'StepCox', '[', direction, '] ---'))
 
         fit <- step(coxph(Surv(OS.time,OS)~., est_dd2), direction = direction)
-        rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, type = 'risk', newdata = x))})
+        rs <- lapply(val_dd_list2, function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('Lasso + ', 'StepCox', '[', direction, ']')
@@ -2530,7 +2546,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
         fit <- step(coxph(Surv(OS.time,OS)~., est_dd), direction = direction_for_stepcox)
 
-        rs <- lapply(val_dd_list,function(x){cbind(x[, 1:2], RS = predict(fit, type = 'risk', newdata = x))})
+        rs <- lapply(val_dd_list,function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']')
@@ -2864,7 +2884,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             fit <- step(coxph(Surv(OS.time, OS)~., est_dd2), direction = direction_for_stepcox)
 
 
-            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=predict(fit, type = 'risk', newdata = x))})
+            rs <- lapply(val_dd_list2, function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
             cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ', 'StepCox', '[', direction_for_stepcox, ']')
@@ -3926,7 +3950,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[,c('OS.time', 'OS', rid)]})
             fit <- step(coxph(Surv(OS.time,OS)~., est_dd2), direction = direction_for_stepcox)
-            rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = predict(fit, type = 'risk', newdata = x))})
+            rs <- lapply(val_dd_list2, function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
             cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('CoxBoost + ', 'StepCox', '[', direction_for_stepcox, ']')
@@ -4304,7 +4332,11 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
             fit <- step(coxph(Surv(OS.time,OS)~., est_dd2), direction = direction_for_stepcox)
 
-            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, type = 'risk', newdata = x))})
+            rs <- lapply(val_dd_list2, function(x){
+          pred <- tryCatch(predict(fit, type = 'risk', newdata = x),
+                           error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
+          cbind(x[, 1:2], RS = pred)
+        })
             cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso + ', 'StepCox', '[', direction_for_stepcox, ']')
