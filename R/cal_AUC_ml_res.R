@@ -179,6 +179,11 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
 
+          # Fix #22: handle identical risk scores (e.g. from survivalsvm)
+          if (length(unique(x$RS)) == 1) {
+            x$RS <- x$RS + runif(nrow(x), min = 0.001, max = 0.01) * abs(x$RS[1])
+          }
+
           x$Group <- ifelse(x$RS > median(x$RS), "High", "Low")
 
 
@@ -190,6 +195,13 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
           x$Group <- factor(x$Group, levels = c("Low", "High"))
+
+          # Fix #22: guard against single-group survdiff error
+          if (length(unique(x$Group)) < 2) {
+            roc_1 <- data.frame(TP = NA, FP = NA, AUC = NA, HR = NA)
+            return(roc_1)
+          }
+
           data.survdiff <- survdiff(mySurv ~ x$Group)
           HR <- (data.survdiff$obs[2] / data.survdiff$exp[2]) / (data.survdiff$obs[1] / data.survdiff$exp[1])
 
@@ -240,7 +252,8 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
           roc_1 <- as.data.frame(roc_1)
           colnames(roc_1) <- c("TP", "FP")
-          roc_1$AUC <- risk.survivalROC$AUC
+          # Fix #110: clamp AUC to [0, 1] to prevent survivalROC floating point issues
+          roc_1$AUC <- min(max(risk.survivalROC$AUC, 0), 1)
           roc_1$HR <- HR
           return(roc_1)
         })
@@ -292,7 +305,15 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
             rs <- lapply(val_dd_list2, function(x) {
-              cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))
+              # Fix #123: catch RSF predict "class name too long" error
+              pred <- tryCatch(
+                as.numeric(predict(fit, x)$predicted),
+                error = function(e) {
+                  warning(paste0("RSF predict failed for dataset: ", e$message))
+                  rep(NA_real_, nrow(x))
+                }
+              )
+              cbind(x[, 1:2], RS = pred)
             })
             roc.test <- returnRStoROC(rs.table.list = rs, AUC_time = AUC_time)
 
@@ -317,7 +338,15 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
             rs <- lapply(val_dd_list2, function(x) {
-              cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))
+              # Fix #123: catch RSF predict "class name too long" error
+              pred <- tryCatch(
+                as.numeric(predict(fit, x)$predicted),
+                error = function(e) {
+                  warning(paste0("RSF predict failed for dataset: ", e$message))
+                  rep(NA_real_, nrow(x))
+                }
+              )
+              cbind(x[, 1:2], RS = pred)
             })
             roc.test <- returnRStoROC(rs.table.list = rs, AUC_time = AUC_time)
 
@@ -544,7 +573,15 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
             rs <- lapply(val_dd_list2, function(x) {
-              cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))
+              # Fix #123: catch RSF predict "class name too long" error
+              pred <- tryCatch(
+                as.numeric(predict(fit, x)$predicted),
+                error = function(e) {
+                  warning(paste0("RSF predict failed for dataset: ", e$message))
+                  rep(NA_real_, nrow(x))
+                }
+              )
+              cbind(x[, 1:2], RS = pred)
             })
             roc.test <- returnRStoROC(rs.table.list = rs, AUC_time = AUC_time)
 
@@ -679,7 +716,15 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
             rs <- lapply(val_dd_list2, function(x) {
-              cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))
+              # Fix #123: catch RSF predict "class name too long" error
+              pred <- tryCatch(
+                as.numeric(predict(fit, x)$predicted),
+                error = function(e) {
+                  warning(paste0("RSF predict failed for dataset: ", e$message))
+                  rep(NA_real_, nrow(x))
+                }
+              )
+              cbind(x[, 1:2], RS = pred)
             })
             roc.test <- returnRStoROC(rs.table.list = rs, AUC_time = AUC_time)
 
@@ -756,7 +801,15 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
             rs <- lapply(val_dd_list2, function(x) {
-              cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))
+              # Fix #123: catch RSF predict "class name too long" error
+              pred <- tryCatch(
+                as.numeric(predict(fit, x)$predicted),
+                error = function(e) {
+                  warning(paste0("RSF predict failed for dataset: ", e$message))
+                  rep(NA_real_, nrow(x))
+                }
+              )
+              cbind(x[, 1:2], RS = pred)
             })
             roc.test <- returnRStoROC(rs.table.list = rs, AUC_time = AUC_time)
 
@@ -891,7 +944,15 @@ cal_AUC_ml_res <- function(res.by.ML.Dev.Prog.Sig = NULL, # ML.Dev.Prog.Sig, 函
 
 
             rs <- lapply(val_dd_list2, function(x) {
-              cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))
+              # Fix #123: catch RSF predict "class name too long" error
+              pred <- tryCatch(
+                as.numeric(predict(fit, x)$predicted),
+                error = function(e) {
+                  warning(paste0("RSF predict failed for dataset: ", e$message))
+                  rep(NA_real_, nrow(x))
+                }
+              )
+              cbind(x[, 1:2], RS = pred)
             })
             roc.test <- returnRStoROC(rs.table.list = rs, AUC_time = AUC_time)
 

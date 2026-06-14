@@ -210,13 +210,27 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
   message(paste0('---the number of the common feature is ', length(common_feature)-3,' ---'))
   
   returnIDtoRS = function(rs.table.list, rawtableID){
-    
+
     for (i in names(rs.table.list)) {
       rs.table.list[[i]] $ID = rawtableID[[i]]$ID
       rs.table.list[[i]] = rs.table.list[[i]] %>% dplyr::select('ID', everything())
     }
-    
+
     return(rs.table.list)
+  }
+
+  # Fix #122: predict survivalsvm with direction correction
+  # survivalsvm may output predicted survival times (higher = better)
+  # instead of risk scores (higher = worse). We check and negate if needed.
+  predictSurvSVM <- function(fit, newdata_list) {
+    lapply(newdata_list, function(x) {
+      pred <- as.numeric(predict(fit, x)$predicted)
+      # Check direction: if higher pred correlates with longer survival, negate
+      if (cor(pred, x$OS.time, use = "complete.obs") > 0) {
+        pred <- -pred
+      }
+      cbind(x[, 1:2], RS = pred)
+    })
   }
   
   
@@ -332,7 +346,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rs <- lapply(val_dd_list, function(x){cbind(x[, 1:2], RS  = predict(fit, newdata = x)$predicted)})
+      rs <- lapply(val_dd_list, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
       rs =returnIDtoRS(rs.table.list = rs,rawtableID = list_train_vali_Data)
 
 
@@ -746,7 +770,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       est_dd2 <- train_data[, c('OS.time', 'OS', rid)]
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
       fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
-      rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=as.numeric(predict(fit, x)$predicted))})
+      rs <- predictSurvSVM(fit, val_dd_list2)
       cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('RSF + ', 'survival-SVM')
@@ -976,7 +1000,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        seed = seed)
 
 
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- lapply(val_dd_list2, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + RSF')
@@ -1032,7 +1066,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           message( paste0('--- 3.StepCox', '[', direction, ']', ' + survival-SVM ---'))
 
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))})
+          rs <- predictSurvSVM(fit, val_dd_list2)
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + survival-SVM')
@@ -1210,7 +1244,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- lapply(val_dd_list2, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + RSF')
@@ -1266,7 +1310,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           message( paste0('--- 3.StepCox', '[', direction, ']', ' + survival-SVM ---'))
 
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))})
+          rs <- predictSurvSVM(fit, val_dd_list2)
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + survival-SVM')
@@ -1445,7 +1489,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- lapply(val_dd_list2, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + RSF')
@@ -1501,7 +1555,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           message( paste0('--- 3.StepCox', '[', direction, ']', ' + survival-SVM ---'))
 
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))})
+          rs <- predictSurvSVM(fit, val_dd_list2)
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + survival-SVM')
@@ -1889,7 +1943,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       est_dd2 <- train_data[, c('OS.time', 'OS', rid)]
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
       fit = survivalsvm(Surv(OS.time, OS)~., data = est_dd2, gamma.mu = 1)
-      rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))})
+      rs <- predictSurvSVM(fit, val_dd_list2)
       cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('CoxBoost + ', 'survival-SVM')
@@ -1996,7 +2050,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       message("---8.survivalsvm ---")
 
       fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd, gamma.mu = 1)
-      rs <- lapply(val_dd_list, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x)$predicted))})
+      rs <- predictSurvSVM(fit, val_dd_list)
       cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('survival - SVM')
@@ -2220,7 +2274,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+      rs <- lapply(val_dd_list2, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
       cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('Lasso', ' + RSF')
@@ -2359,7 +2423,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[,c('OS.time', 'OS', rid)]})
       fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
-      rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x)$predicted))})
+      rs <- predictSurvSVM(fit, val_dd_list2)
       cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('Lasso + ', 'survival-SVM')
@@ -2406,7 +2470,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                      proximity = T,
                      forest = T,
                      seed = seed)
-        rs <- lapply(val_dd_list, function(x){cbind(x[, 1:2], RS  = predict(fit, newdata = x)$predicted)})
+        rs <- lapply(val_dd_list, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
           rownames_to_column('ID')
         cc$Model <- 'RSF'
@@ -2619,7 +2693,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
         set.seed(seed)
         fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd, gamma.mu = 1)
-        rs <- lapply(val_dd_list, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x)$predicted))})
+        rs <- predictSurvSVM(fit, val_dd_list)
         cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('survival - SVM')
@@ -3052,7 +3126,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             est_dd2 <- train_data[, c('OS.time', 'OS', rid)]
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
             fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
-            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS=as.numeric(predict(fit, x)$predicted))})
+            rs <- predictSurvSVM(fit, val_dd_list2)
             cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ', 'survival-SVM')
@@ -3283,7 +3357,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+          rs <- lapply(val_dd_list2, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + RSF')
@@ -3472,7 +3556,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
 
-          rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))})
+          rs <- predictSurvSVM(fit, val_dd_list2)
           cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + survival-SVM')
@@ -3954,7 +4038,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             est_dd2 <- train_data[, c('OS.time', 'OS', rid)]
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
             fit = survivalsvm(Surv(OS.time, OS)~., data = est_dd2, gamma.mu = 1)
-            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, x)$predicted))})
+            rs <- predictSurvSVM(fit, val_dd_list2)
             cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('CoxBoost + ', 'survival-SVM')
@@ -4162,7 +4246,17 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                          proximity = T,
                          forest = T,
                          seed = seed)
-            rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = predict(fit, newdata = x)$predicted)})
+            rs <- lapply(val_dd_list2, function(x){
+          # Fix #123: catch RSF predict "class name too long" error
+          pred <- tryCatch(
+            as.numeric(predict(fit, newdata = x)$predicted),
+            error = function(e) {
+              warning(paste0("RSF predict failed: ", e$message))
+              rep(NA_real_, nrow(x))
+            }
+          )
+          cbind(x[, 1:2], RS = pred)
+        })
             cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso', ' + RSF')
@@ -4319,7 +4413,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             est_dd2 <- train_data[,c('OS.time', 'OS', rid)]
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[,c('OS.time', 'OS', rid)]})
             fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
-            rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x)$predicted))})
+            rs <- predictSurvSVM(fit, val_dd_list2)
             cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso + ', 'survival-SVM')
