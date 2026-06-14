@@ -380,7 +380,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
       rid <- rid$topvars
 
@@ -425,7 +425,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
 
       rid <- rid$topvars
@@ -467,7 +467,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
 
       rid <- rid$topvars
@@ -519,7 +519,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
 
       rid <- rid$topvars
@@ -563,7 +563,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
 
 
@@ -608,7 +608,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
       rid <- rid$topvars
 
@@ -653,7 +653,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
 
       rid <- rid$topvars
@@ -699,7 +699,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
 
       rid <- rid$topvars
@@ -765,7 +765,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    proximity = T,
                    forest = T,
                    seed = seed)
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
 
 
       rid <- rid$topvars
@@ -2822,7 +2822,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
           rid <- rid$topvars
 
           if(length(rid)>1) {
@@ -2871,7 +2871,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
 
           rid <- rid$topvars
@@ -2919,7 +2919,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
           rid <- rid$topvars
 
@@ -2967,7 +2967,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
 
 
@@ -3015,7 +3015,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
 
           rid <- rid$topvars
@@ -3082,7 +3082,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
 
           rid <- rid$topvars
@@ -3140,7 +3140,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
 
           rid <- rid$topvars
@@ -3184,7 +3184,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
           rid <- rid$topvars
           if(length(rid)>1) {
@@ -3232,7 +3232,7 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                        proximity = T,
                        forest = T,
                        seed = seed)
-          rid <- var.select(object = fit, conservative = "high")
+          rid <- max.subtree(fit, conservative = "high")
 
 
           rid <- rid$topvars

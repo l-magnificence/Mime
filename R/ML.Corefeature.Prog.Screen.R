@@ -729,7 +729,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
         forest = T,
         seed = seed
       )
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
       rid <- rid$topvars
 
       result <- data.frame(
@@ -1026,7 +1026,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
           forest = T,
           seed = seed
         )
-        rid <- var.select(object = fit, conservative = "high")
+        rid <- max.subtree(fit, conservative = "high")
         rid <- rid$topvars
 
         result <- data.frame(
@@ -1323,7 +1323,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
         forest = T,
         seed = seed
       )
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
       rid <- rid$topvars
 
       result <- data.frame(
