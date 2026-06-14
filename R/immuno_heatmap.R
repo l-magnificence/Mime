@@ -46,10 +46,17 @@ immuno_heatmap<-function(object,# output of ML.Dev.Prog.Sig
     tibble_i <-  tibble_i |> as.data.frame() |> tibble::column_to_rownames("cell_type")
     return(tibble_i)
   })
-  
+
   ht_opt$message = FALSE
-  
-  samorder <- risk[order(risk$RS),]$ID
+
+  # Fix #41: only use samples that exist in both risk scores and deconvolution results
+  all_samorder <- risk[order(risk$RS),]$ID
+  common_samples <- Reduce(intersect, lapply(hmdat, function(x) intersect(colnames(x), all_samorder)))
+  if (length(common_samples) == 0) {
+    stop("No matching samples found between risk scores and deconvolution results. ",
+         "Please check that the same datasets are used.")
+  }
+  samorder <- all_samorder[all_samorder %in% common_samples]
   annCol <- data.frame(RiskScore = scale(risk$RS),
                        RiskType = risk$risk,
                        row.names = risk$ID,

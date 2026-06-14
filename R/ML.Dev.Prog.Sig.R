@@ -232,6 +232,28 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       cbind(x[, 1:2], RS = pred)
     })
   }
+
+  # Fix #62: clean risk scores by replacing Inf/NaN with NA
+  cleanRS <- function(rs_list) {
+    lapply(rs_list, function(x) {
+      x$RS[is.infinite(x$RS) | is.nan(x$RS)] <- NA
+      x
+    })
+  }
+
+  # Fix #62: safe C-index calculation that handles Inf/NaN/NA
+  safeCindex <- function(rs_item) {
+    tryCatch({
+      # Remove rows with NA/Inf/NaN RS
+      valid <- !is.na(rs_item$RS) & !is.infinite(rs_item$RS) & !is.nan(rs_item$RS)
+      if (sum(valid) < 2) return(NA_real_)
+      x <- rs_item[valid, ]
+      as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])
+    }, error = function(e) {
+      warning(paste0("C-index calculation failed: ", e$message))
+      NA_real_
+    })
+  }
   
   
 
@@ -361,7 +383,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
 
 
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- 'RSF'
       result <- rbind(result, cc)
@@ -398,7 +421,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
                         stepno = cv.res$optimal.step, penalty = pen$penalty)
         rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x[, -c(1, 2)], newtime = x[, 1],  newstatus = x[, 2], type = "lp")))})
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('RSF + ','CoxBoost')
         result <- rbind(result, cc)
@@ -441,7 +465,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         set.seed(seed)
         fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha, nfolds = 10)
         rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('RSF + ', 'Enet', '[α=', alpha, ']')
         result <- rbind(result, cc)
@@ -537,7 +562,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                       )
       rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
 
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('RSF + ', 'Lasso')
       result <- rbind(result, cc)
@@ -580,7 +606,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
 
       rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1, 2)])))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('RSF + ', 'plsRcox')
       result <- rbind(result, cc)
@@ -625,7 +652,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                       family = "cox", alpha = 0
                       )
       rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('RSF + ', 'Ridge')
       result <- rbind(result, cc)
@@ -670,7 +698,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('RSF + ', 'StepCox', '[', direction, ']')
         result <- rbind(result, cc)
@@ -775,7 +804,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
       fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
       rs <- predictSurvSVM(fit, val_dd_list2)
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('RSF + ', 'survival-SVM')
       result <- rbind(result,cc)
@@ -832,7 +862,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('StepCox', '[', direction, ']')
         result <- rbind(result, cc)
@@ -946,7 +977,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           family = "cox", alpha = 1
                           )
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + Lasso')
           result <- rbind(result, cc)
@@ -964,7 +996,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time,
                          event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
           rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1,2)])))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + plsRcox')
           result <- rbind(result, cc)
@@ -985,7 +1018,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           family = "cox", alpha = 0
                           )
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + Ridge')
           result <- rbind(result, cc)
@@ -1019,7 +1053,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           )
           cbind(x[, 1:2], RS = pred)
         })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + RSF')
           result <- rbind(result, cc)
@@ -1059,7 +1094,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             rr2 <- cbind(w[,1:2], RS = rr)
             return(rr2)
           })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + SuperPC')
           result <- rbind(result, cc)
@@ -1075,7 +1111,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
           rs <- predictSurvSVM(fit, val_dd_list2)
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + survival-SVM')
           result <- rbind(result, cc)
@@ -1192,7 +1229,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           family = "cox", alpha = 1
                           )
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + Lasso')
           result <- rbind(result, cc)
@@ -1210,7 +1248,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time,
                          event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
           rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1,2)])))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + plsRcox')
           result <- rbind(result, cc)
@@ -1231,7 +1270,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           family = "cox", alpha = 0
                           )
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + Ridge')
           result <- rbind(result, cc)
@@ -1263,7 +1303,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           )
           cbind(x[, 1:2], RS = pred)
         })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + RSF')
           result <- rbind(result, cc)
@@ -1303,7 +1344,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             rr2 <- cbind(w[,1:2], RS = rr)
             return(rr2)
           })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + SuperPC')
           result <- rbind(result, cc)
@@ -1319,7 +1361,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
           rs <- predictSurvSVM(fit, val_dd_list2)
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + survival-SVM')
           result <- rbind(result, cc)
@@ -1437,7 +1480,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           family = "cox", alpha = 1
                           )
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + Lasso')
           result <- rbind(result, cc)
@@ -1455,7 +1499,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time,
                          event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
           rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1,2)])))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + plsRcox')
           result <- rbind(result, cc)
@@ -1476,7 +1521,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           family = "cox", alpha = 0
                           )
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + Ridge')
           result <- rbind(result, cc)
@@ -1508,7 +1554,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           )
           cbind(x[, 1:2], RS = pred)
         })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + RSF')
           result <- rbind(result, cc)
@@ -1548,7 +1595,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             rr2 <- cbind(w[,1:2], RS = rr)
             return(rr2)
           })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + SuperPC')
           result <- rbind(result, cc)
@@ -1564,7 +1612,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
           rs <- predictSurvSVM(fit, val_dd_list2)
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction, ']', ' + survival-SVM')
           result <- rbind(result, cc)
@@ -1631,7 +1680,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         message( paste0('--- 4.CoxBoost', ' + Enet', '[α=', alpha, '] ---'))
         fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha, nfolds = 10)
         rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1,2)]), s = fit$lambda.min)))})
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('CoxBoost', ' + Enet', '[α=', alpha, ']')
         result <- rbind(result, cc)
@@ -1729,7 +1779,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                       family = "cox", alpha = 1
                       )
       rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1,2)]), s = fit$lambda.min)))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('CoxBoost + ', 'Lasso')
       result <- rbind(result, cc)
@@ -1768,7 +1819,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
 
       rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type="lp", newdata = x[, -c(1,2)])))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('CoxBoost + ', 'plsRcox')
       result <- rbind(result, cc)
@@ -1855,7 +1907,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('CoxBoost + ', 'StepCox', '[', direction, ']')
         result <- rbind(result, cc)
@@ -1956,7 +2009,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
       fit = survivalsvm(Surv(OS.time, OS)~., data = est_dd2, gamma.mu = 1)
       rs <- predictSurvSVM(fit, val_dd_list2)
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('CoxBoost + ', 'survival-SVM')
       result <- rbind(result, cc)
@@ -2047,7 +2101,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                  shrinkage = 0.001,
                  cv.folds = 10, n.cores = cores_for_parallel)
       rs <- lapply(val_dd_list,function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('GBM')
       result <- rbind(result, cc)
@@ -2063,7 +2118,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
       fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd, gamma.mu = 1)
       rs <- predictSurvSVM(fit, val_dd_list)
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('survival - SVM')
       result <- rbind(result, cc)
@@ -2113,7 +2169,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                       family = "cox", alpha = 1
                       )
       rs <- lapply(val_dd_list, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1,2)]), s = fit$lambda.min)))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('Lasso')
       result <- rbind(result, cc)
@@ -2245,7 +2302,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
 
       rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[,-c(1,2)])))})
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('Lasso + ', 'plsRcox')
       result <- rbind(result, cc)
@@ -2297,7 +2355,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           )
           cbind(x[, 1:2], RS = pred)
         })
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('Lasso', ' + RSF')
       result <- rbind(result, cc)
@@ -2341,7 +2400,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('Lasso + ', 'StepCox', '[', direction, ']')
         result <- rbind(result, cc)
@@ -2403,7 +2463,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         rr2 <- cbind(w[, 1:2], RS = rr)
         return(rr2)
       })
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('Lasso + ', 'SuperPC')
       result <- rbind(result, cc)
@@ -2440,7 +2501,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
       val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[,c('OS.time', 'OS', rid)]})
       fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
       rs <- predictSurvSVM(fit, val_dd_list2)
-      cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+      rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
         rownames_to_column('ID')
       cc$Model <- paste0('Lasso + ', 'survival-SVM')
       result <- rbind(result, cc)
@@ -2497,7 +2559,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           )
           cbind(x[, 1:2], RS = pred)
         })
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- 'RSF'
         result <- rbind(result, cc)
@@ -2551,7 +2614,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']')
         result <- rbind(result, cc)
@@ -2690,7 +2754,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                    cv.folds = 10, n.cores = cores_for_parallel)
 
         rs <- lapply(val_dd_list,function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, x, n.trees = best, type = 'link')))})
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('GBM')
         result <- rbind(result, cc)
@@ -2714,7 +2779,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
         set.seed(seed)
         fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd, gamma.mu = 1)
         rs <- predictSurvSVM(fit, val_dd_list)
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('survival - SVM')
         result <- rbind(result, cc)
@@ -2777,7 +2843,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                         family = "cox", alpha = 1
                         )
         rs <- lapply(val_dd_list, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1,2)]), s = fit$lambda.min)))})
-        cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+        rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
           rownames_to_column('ID')
         cc$Model <- paste0('Lasso')
         result <- rbind(result, cc)
@@ -2836,7 +2903,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
               set.seed(seed)
               fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha, nfolds = 10)
               rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-              cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+              rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
                 rownames_to_column('ID')
               cc$Model <- paste0('RSF + ', 'Enet', '[α=', alpha_for_Enet, ']')
               result <- rbind(result, cc)
@@ -2889,7 +2957,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ', 'StepCox', '[', direction_for_stepcox, ']')
             result <- rbind(result, cc)
@@ -2937,7 +3006,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             fit <- CoxBoost(est_dd2[, 'OS.time'], est_dd2[, 'OS'], as.matrix(est_dd2[, -c(1, 2)]),
                             stepno = cv.res$optimal.step, penalty = pen$penalty)
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, newdata = x[, -c(1, 2)], newtime = x[, 1],  newstatus = x[, 2], type = "lp")))})
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ','CoxBoost')
             result <- rbind(result, cc)
@@ -2984,7 +3054,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
 
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1, 2)])))})
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ', 'plsRcox')
             result <- rbind(result, cc)
@@ -3151,7 +3222,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
             fit = survivalsvm(Surv(OS.time, OS)~., data= est_dd2, gamma.mu = 1)
             rs <- predictSurvSVM(fit, val_dd_list2)
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ', 'survival-SVM')
             result <- rbind(result,cc)
@@ -3200,7 +3272,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                             family = "cox", alpha = 0
                             )
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ', 'Ridge')
             result <- rbind(result, cc)
@@ -3249,7 +3322,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                             )
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
 
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('RSF + ', 'Lasso')
             result <- rbind(result, cc)
@@ -3392,7 +3466,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           )
           cbind(x[, 1:2], RS = pred)
         })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + RSF')
           result <- rbind(result, cc)
@@ -3430,7 +3505,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time,
                          event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
           rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[, -c(1,2)])))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + plsRcox')
           result <- rbind(result, cc)
@@ -3495,7 +3571,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             rr2 <- cbind(w[,1:2], RS = rr)
             return(rr2)
           })
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + SuperPC')
           result <- rbind(result, cc)
@@ -3581,7 +3658,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
 
           rs <- predictSurvSVM(fit, val_dd_list2)
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + survival-SVM')
           result <- rbind(result, cc)
@@ -3624,7 +3702,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           family = "cox", alpha = 0
                           )
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + Ridge')
           result <- rbind(result, cc)
@@ -3665,7 +3744,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                           )
 
           rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1, 2)]), s = fit$lambda.min)))})
-          cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+          rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
             rownames_to_column('ID')
           cc$Model <- paste0('StepCox', '[', direction_for_stepcox, ']', ' + Lasso')
           result <- rbind(result, cc)
@@ -3717,7 +3797,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             set.seed(seed)
             fit = cv.glmnet(x1, x2, family = "cox", alpha = alpha_for_Enet, nfolds = 10)
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = 'link', newx = as.matrix(x[, -c(1,2)]), s = fit$lambda.min)))})
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('CoxBoost', ' + Enet', '[α=', alpha_for_Enet, ']')
             result <- rbind(result, cc)
@@ -3818,7 +3899,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                             family = "cox", alpha = 1
                             )
             rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type = 'response', newx = as.matrix(x[, -c(1,2)]), s = fit$lambda.min)))})
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('CoxBoost + ', 'Lasso')
             result <- rbind(result, cc)
@@ -3861,7 +3943,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             fit <- plsRcox(est_dd2[, rid], time = est_dd2$OS.time, event = est_dd2$OS, nt = as.numeric(cv.plsRcox.res[5]))
 
             rs <- lapply(val_dd_list2, function(x){cbind(x[,1:2], RS = as.numeric(predict(fit, type="lp", newdata = x[, -c(1,2)])))})
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('CoxBoost + ', 'plsRcox')
             result <- rbind(result, cc)
@@ -3955,7 +4038,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('CoxBoost + ', 'StepCox', '[', direction_for_stepcox, ']')
             result <- rbind(result, cc)
@@ -4067,7 +4151,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[, c('OS.time', 'OS', rid)]})
             fit = survivalsvm(Surv(OS.time, OS)~., data = est_dd2, gamma.mu = 1)
             rs <- predictSurvSVM(fit, val_dd_list2)
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('CoxBoost + ', 'survival-SVM')
             result <- rbind(result, cc)
@@ -4226,7 +4311,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
 
 
             rs <- lapply(val_dd_list2, function(x){cbind(x[, 1:2], RS = as.numeric(predict(fit, type = "lp", newdata = x[,-c(1,2)])))})
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso + ', 'plsRcox')
             result <- rbind(result, cc)
@@ -4285,7 +4371,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
           )
           cbind(x[, 1:2], RS = pred)
         })
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso', ' + RSF')
             result <- rbind(result, cc)
@@ -4337,7 +4424,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
                            error = function(e) { warning(paste0("StepCox predict failed: ", e$message)); rep(NA_real_, nrow(x)) })
           cbind(x[, 1:2], RS = pred)
         })
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso + ', 'StepCox', '[', direction_for_stepcox, ']')
             result <- rbind(result, cc)
@@ -4402,7 +4490,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
               rr2 <- cbind(w[, 1:2], RS = rr)
               return(rr2)
             })
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso + ', 'SuperPC')
             result <- rbind(result, cc)
@@ -4446,7 +4535,8 @@ ML.Dev.Prog.Sig = function(train_data, # cohort data used for training, the coln
             val_dd_list2 <- lapply(list_train_vali_Data, function(x){x[,c('OS.time', 'OS', rid)]})
             fit = survivalsvm(Surv(OS.time,OS)~., data = est_dd2, gamma.mu = 1)
             rs <- predictSurvSVM(fit, val_dd_list2)
-            cc <- data.frame(Cindex = sapply(rs, function(x){as.numeric(summary(coxph(Surv(OS.time, OS) ~ RS, x))$concordance[1])})) %>%
+            rs <- cleanRS(rs)
+      cc <- data.frame(Cindex = sapply(rs, safeCindex)) %>%
               rownames_to_column('ID')
             cc$Model <- paste0('Lasso + ', 'survival-SVM')
             result <- rbind(result, cc)
