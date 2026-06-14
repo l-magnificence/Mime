@@ -48,10 +48,19 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
 
   message("--- Data preprocessing ---")
   annotate_cell_type <- function(result_table, method) {
+    # Fix #43: check if cell_type_map exists in immunedeconv
+    if (exists("cell_type_map", envir = asNamespace("immunedeconv"))) {
+      cell_type_map <- get("cell_type_map", envir = asNamespace("immunedeconv"))
+    } else if (exists("cell_type_map", envir = .GlobalEnv)) {
+      cell_type_map <- get("cell_type_map", envir = .GlobalEnv)
+    } else {
+      warning("cell_type_map not found, returning raw results")
+      return(result_table)
+    }
     cell_type_map %>%
       filter(method_dataset == !!method) %>%
       inner_join(result_table, by = "method_cell_type") %>%
-      dplyr::select(-method_cell_type, -method_dataset)
+      dplyr::select(-any_of(c("method_cell_type", "method_dataset")))
   }
   set_cibersort_binary(system.file("extdata", "CIBERSORT.R", package = "Mime1"))
   set_cibersort_mat(system.file("extdata", "LM22.txt", package = "Mime1"))
@@ -140,31 +149,28 @@ TME_deconvolution_all <- function(inputmatrix.list, # A list contain the datafra
       dplyr::select(-c(ID, OS.time, OS)) %>%
       t()
 
-    tryCatch(
+    # Fix #43: assign tryCatch result to fix scoping issue with resultList
+    resultList <- tryCatch(
       {
         if (selected_columns == "none") {
-          resultList <- TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = F)
+          TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = F)
         } else if (all(selected_columns %in% names(inputmatrix.list))) {
-          # 将用户输入的名字拆分成一个字符向量
           if (names(inputmatrix.list)[i] %in% selected_columns) {
-            # 确保用户输入的名字都存在
-            resultList <- TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = T)
+            TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = T)
           } else {
-            resultList <- TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = F)
+            TME_deconvolution(gene_expression = test.matrix, deconvolution_method = deconvolution_method, arrays = F)
           }
         } else {
           cat("Invalid dataset name(s). Please try again.")
+          NULL
         }
-        print("Success")
       },
       error = function(e) {
-        print(paste("An error occurred:", conditionMessage(e)))
-        resultList <- NULL
-      },
-      finally = {
-        tme_decon_list[[names(inputmatrix.list)[i]]] <- resultList
+        message(paste("An error occurred:", conditionMessage(e)))
+        NULL
       }
     )
+    tme_decon_list[[names(inputmatrix.list)[i]]] <- resultList
   }
   return(tme_decon_list)
 }

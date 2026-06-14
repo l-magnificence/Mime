@@ -74,48 +74,53 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
       LogitBoost = nrow(Grid[["LogitBoost"]])
     )
     ls_model <- lapply(method, function(m) {
-      if (m == "cancerclass") { # cancerclass is not avaliable in caret
-        pData <- data.frame(class = training$Var, sample = rownames(training), row.names = rownames(training))
-        phenoData <- new("AnnotatedDataFrame", data = pData)
-        Sig.Exp <- t(training[, -1])
-        Sig.Exp.train <- ExpressionSet(assayData = as.matrix(Sig.Exp), phenoData = phenoData)
-        predictor <- fit(Sig.Exp.train, method = "welch.test")
-        model.tune <- predictor
-      } else {
-        f <- 5 # f folds resampling
-        r <- 10 # r repeats
-        n <- f * r
+      tryCatch({
+        if (m == "cancerclass") { # cancerclass is not avaliable in caret
+          pData <- data.frame(class = training$Var, sample = rownames(training), row.names = rownames(training))
+          phenoData <- new("AnnotatedDataFrame", data = pData)
+          Sig.Exp <- t(training[, -1])
+          Sig.Exp.train <- ExpressionSet(assayData = as.matrix(Sig.Exp), phenoData = phenoData)
+          predictor <- fit(Sig.Exp.train, method = "welch.test")
+          model.tune <- predictor
+        } else {
+          f <- 5 # f folds resampling
+          r <- 10 # r repeats
+          n <- f * r
 
-        # sets random seeds for parallel running for each single resampling f-folds and r-repeats cross-validation
-        seeds <- vector(mode = "list", length = n + 1)
-        # the number of tuning parameter
-        for (i in 1:n) seeds[[i]] <- sample.int(n = 1000, TuneLength[[m]])
+          # sets random seeds for parallel running for each single resampling f-folds and r-repeats cross-validation
+          seeds <- vector(mode = "list", length = n + 1)
+          # the number of tuning parameter
+          for (i in 1:n) seeds[[i]] <- sample.int(n = 1000, TuneLength[[m]])
 
-        # for the last model
-        seeds[[n + 1]] <- sample.int(1000, 1)
-
-
-        ctrl <- trainControl(
-          method = "repeatedcv",
-          number = f, ## 5-folds cv
-          summaryFunction = twoClassSummary, # Use AUC to pick the best model
-          classProbs = TRUE,
-          repeats = r, ## 10-repeats cv,
-          seeds = seeds
-        )
+          # for the last model
+          seeds[[n + 1]] <- sample.int(1000, 1)
 
 
+          ctrl <- trainControl(
+            method = "repeatedcv",
+            number = f, ## 5-folds cv
+            summaryFunction = twoClassSummary, # Use AUC to pick the best model
+            classProbs = TRUE,
+            repeats = r, ## 10-repeats cv,
+            seeds = seeds
+          )
 
-        model.tune <- train(Var ~ .,
-          data = training,
-          method = m,
-          metric = "ROC",
-          trControl = ctrl,
-          tuneGrid = Grid[[m]]
-        )
-      }
-      print(m)
-      return(model.tune)
+
+
+          model.tune <- train(Var ~ .,
+            data = training,
+            method = m,
+            metric = "ROC",
+            trControl = ctrl,
+            tuneGrid = Grid[[m]]
+          )
+        }
+        print(m)
+        return(model.tune)
+      }, error = function(e) {
+        warning(paste0("Model '", m, "' training failed: ", e$message))
+        return(NULL)
+      })
     })
 
 
@@ -179,40 +184,50 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
 
   cal.model.auc <- function(res.by.model.Dev, cohort.for.cal, sig) {
     library(dplyr)
-    
+
     rownames(cohort.for.cal) <- cohort.for.cal$ID
     validation <- cohort.for.cal[, colnames(cohort.for.cal) %in% c("Var", sig)]
     validation$Var <- factor(validation$Var, levels = c("N", "Y"))
-    
+
     ls_model <- res.by.model.Dev
     models <- names(ls_model)
     auc <- lapply(1:length(models), function(i) {
-      if (models[i] == "cancerclass") {
-        model.tune <- ls_model[[i]]
-        pData <- data.frame(class = validation$Var, sample = rownames(validation), row.names = rownames(validation))
-        phenoData <- new("AnnotatedDataFrame", data = pData)
-        Sig.Exp <- t(validation[, -1])
-        Sig.Exp.test <- ExpressionSet(assayData = as.matrix(Sig.Exp), phenoData = phenoData)
-        prediction <- predict(model.tune, Sig.Exp.test, "N", ngenes = nrow(Sig.Exp), dist = "cor")
-        roc <- roc(
-          response = prediction@prediction[, "class_membership"],
-          predictor = as.numeric(prediction@prediction[, "z"])
-        )
-        roc_result <- coords(roc, "best")
-        auc <- data.frame(ROC = as.numeric(roc$auc), Sens = roc_result$sensitivity[1], Spec = roc_result$specificity[1])
-      } else {
-        model.tune <- ls_model[[i]]
-        prob <- predict(model.tune, validation[, -1], type = "prob")
-        pre <- predict(model.tune, validation[, -1])
-        test_set <- data.frame(obs = validation$Var, N = prob[, "N"], Y = prob[, "Y"], pred = pre)
-        auc <- twoClassSummary(test_set, lev = levels(test_set$obs))
-      }
-      
-      return(auc)
+      tryCatch({
+        if (models[i] == "cancerclass") {
+          model.tune <- ls_model[[i]]
+          pData <- data.frame(class = validation$Var, sample = rownames(validation), row.names = rownames(validation))
+          phenoData <- new("AnnotatedDataFrame", data = pData)
+          Sig.Exp <- t(validation[, -1])
+          Sig.Exp.test <- ExpressionSet(assayData = as.matrix(Sig.Exp), phenoData = phenoData)
+          prediction <- predict(model.tune, Sig.Exp.test, "N", ngenes = nrow(Sig.Exp), dist = "cor")
+          roc <- roc(
+            response = prediction@prediction[, "class_membership"],
+            predictor = as.numeric(prediction@prediction[, "z"])
+          )
+          roc_result <- coords(roc, "best")
+          auc <- data.frame(ROC = as.numeric(roc$auc), Sens = roc_result$sensitivity[1], Spec = roc_result$specificity[1])
+        } else {
+          model.tune <- ls_model[[i]]
+          prob <- predict(model.tune, validation[, -1], type = "prob")
+          pre <- predict(model.tune, validation[, -1])
+          # Fix #112: ensure prob columns match factor levels
+          lev <- levels(validation$Var)
+          if (!all(lev %in% colnames(prob))) {
+            warning(paste0("Model '", models[i], "' prob columns do not match factor levels. Skipping."))
+            return(data.frame(ROC = NA, Sens = NA, Spec = NA))
+          }
+          test_set <- data.frame(obs = validation$Var, N = prob[, lev[1]], Y = prob[, lev[2]], pred = pre)
+          auc <- twoClassSummary(test_set, lev = lev)
+        }
+        return(auc)
+      }, error = function(e) {
+        warning(paste0("Model '", models[i], "' AUC calculation failed: ", e$message))
+        return(data.frame(ROC = NA, Sens = NA, Spec = NA))
+      })
     }) %>% base::do.call(rbind, .)
-    
+
     rownames(auc) <- names(ls_model)
-    
+
     return(auc)
   }
 
@@ -227,31 +242,42 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
     ls_model <- res.by.model.Dev
     models <- names(ls_model)
     roc <- lapply(1:length(models), function(i) {
-      if (!models[i] == "cancerclass") {
-        prob <- predict(ls_model[[models[i]]], validation[, -1], type = "prob") #
-        pre <- predict(ls_model[[models[i]]], validation[, -1]) #
-        test_set <- data.frame(obs = validation$Var, N = prob[, "N"], Y = prob[, "Y"], pred = pre)
-        roc <- ROCit::rocit(
-          score = test_set$N,
-          class = test_set$obs,
-          negref = "Y"
-        )
-      } else {
-        pData <- data.frame(class = validation$Var, sample = rownames(validation), row.names = rownames(validation))
-        phenoData <- new("AnnotatedDataFrame", data = pData)
-        Sig.Exp <- t(validation[, -1])
-        Sig.Exp.test <- ExpressionSet(assayData = as.matrix(Sig.Exp), phenoData = phenoData)
+      tryCatch({
+        if (!models[i] == "cancerclass") {
+          prob <- predict(ls_model[[models[i]]], validation[, -1], type = "prob")
+          pre <- predict(ls_model[[models[i]]], validation[, -1])
+          # Fix #112: ensure prob columns match factor levels
+          lev <- levels(validation$Var)
+          if (!all(lev %in% colnames(prob))) {
+            warning(paste0("Model '", models[i], "' prob columns do not match factor levels. Skipping."))
+            return(NULL)
+          }
+          test_set <- data.frame(obs = validation$Var, N = prob[, lev[1]], Y = prob[, lev[2]], pred = pre)
+          roc <- ROCit::rocit(
+            score = test_set$N,
+            class = test_set$obs,
+            negref = "Y"
+          )
+        } else {
+          pData <- data.frame(class = validation$Var, sample = rownames(validation), row.names = rownames(validation))
+          phenoData <- new("AnnotatedDataFrame", data = pData)
+          Sig.Exp <- t(validation[, -1])
+          Sig.Exp.test <- ExpressionSet(assayData = as.matrix(Sig.Exp), phenoData = phenoData)
 
-        prediction <- predict(ls_model[[models[i]]], Sig.Exp.test, "N", ngenes = nrow(Sig.Exp), dist = "cor")
-        roc <- roc(
-          response = prediction@prediction[, "class_membership"],
-          predictor = as.numeric(prediction@prediction[, "z"])
-        )
-      }
+          prediction <- predict(ls_model[[models[i]]], Sig.Exp.test, "N", ngenes = nrow(Sig.Exp), dist = "cor")
+          roc <- roc(
+            response = prediction@prediction[, "class_membership"],
+            predictor = as.numeric(prediction@prediction[, "z"])
+          )
+        }
+        return(roc)
+      }, error = function(e) {
+        warning(paste0("Model '", models[i], "' ROC calculation failed: ", e$message))
+        return(NULL)
+      })
     })
 
     names(roc) <- models
-
 
     return(roc)
   }
@@ -351,12 +377,22 @@ ML.Dev.Pred.Category.Sig <- function(train_data, # cohort data used for training
 
     res.model <- model.Dev(
       training = train_data,
-      method = c("nb", "svmRadialWeights", "kknn", "rf", "adaboost", "LogitBoost", "cancerclass"),
+      method = methods,
       sig = pre_var
     )
     stopCluster(cl)
 
+    # Filter out models that failed to train (NULL)
+    failed_models <- names(res.model)[sapply(res.model, is.null)]
+    if (length(failed_models) > 0) {
+      warning(paste0("The following models failed to train and will be excluded: ",
+                     paste(failed_models, collapse = ", ")))
+      res.model <- res.model[!sapply(res.model, is.null)]
+    }
 
+    if (length(res.model) == 0) {
+      stop("All models failed to train. Please check your data and methods.")
+    }
 
     ml.auc <- lapply(list_train_vali_Data, function(x) {
       res.tmp <- cal.model.auc(res.by.model.Dev = res.model, cohort.for.cal = x, sig = pre_var)

@@ -108,14 +108,19 @@ cindex_dis_all <- function(object, # output of ML.Dev.Prog.Sig mode = 'all'
       axis.text.x = element_blank()
     )
 
+  # Fix #88: limit dataset colors to actual number of cohorts
+  n_cohorts <- length(unique(labels$Cohort))
+  dataset_col_use <- dataset_col[seq_len(min(n_cohorts, length(dataset_col)))]
+
   p2 <- ggplot(labels, aes(Cohort, y = 1)) +
     geom_tile(aes(fill = Cohort), color = "white", size = 0.5) +
-    scale_fill_manual(values = dataset_col, name = "Cohort") +
-    theme_void()
+    scale_fill_manual(values = dataset_col_use, name = "Cohort") +
+    theme_void() +
+    theme(legend.position = "none")
 
   p3 <- ggplot(data = mean_cindex, aes(x = Model, y = mean, fill = Value)) +
     geom_bar(position = "dodge", stat = "identity") +
-    scale_fill_manual(values = color[4]) +
+    scale_fill_manual(values = color[4], guide = "none") +
     geom_text(aes(label = mean), position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.2, size = 2) +
     theme(
       axis.title = element_text(size = 8),
@@ -124,20 +129,16 @@ cindex_dis_all <- function(object, # output of ML.Dev.Prog.Sig mode = 'all'
       axis.title.y = element_blank(),
       axis.text.x = element_blank(),
       axis.text.y = element_blank(),
-      # panel.border = element_rect(colour = "black", fill=NA,size = 0.2),
       panel.grid = element_blank(),
-      # legend.position = "",
       plot.title = element_text(hjust = 0.5),
       panel.background = element_rect(fill = "white")
     ) +
-    # scale_y_continuous(#position = "right",
-    #   expand = c(0, 0.001))+
     labs(y = "") +
     coord_flip()
 
   p4 <- ggplot(data = mean_cindex_validate, aes(x = Model, y = mean, fill = Value)) +
     geom_bar(position = "dodge", stat = "identity") +
-    scale_fill_manual(values = color[5], name = "") +
+    scale_fill_manual(values = color[5], name = "", guide = "none") +
     geom_text(aes(label = mean), position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.2, size = 2) +
     theme(
       axis.title = element_text(size = 8),
@@ -146,14 +147,10 @@ cindex_dis_all <- function(object, # output of ML.Dev.Prog.Sig mode = 'all'
       axis.title.y = element_blank(),
       axis.text.x = element_blank(),
       axis.text.y = element_blank(),
-      # panel.border = element_rect(colour = "black", fill=NA,size = 0.2),
       panel.grid = element_blank(),
-      # legend.position = "",
       plot.title = element_text(hjust = 0.5),
       panel.background = element_rect(fill = "white")
     ) +
-    # scale_y_continuous(#position = "right",
-    #   expand = c(0, 0.001))+
     labs(y = "") +
     coord_flip()
 

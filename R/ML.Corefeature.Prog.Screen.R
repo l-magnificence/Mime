@@ -275,6 +275,12 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
       comsa1 <- intersect(colnames(inputSet)[4:ncol(inputSet)], gene_list)
       # write.table(comsa1,"2.intersection_genelist_exprSet_gene.txt", row.names = F, quote = F)
 
+      # Fix #106/#51: guard against empty gene intersection
+      if (length(comsa1) == 0) {
+        stop("No candidate genes found in the expression matrix after intersection. ",
+             "Please check that gene_list contains valid gene symbols matching column names.")
+      }
+
       print("Processing the  input representation matrix")
       # 对输入的表达矩阵进行处理
       inputSet <- inputSet[, c("ID", "OS.time", "OS", comsa1)]
@@ -365,6 +371,12 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
       comsa1 <- intersect(colnames(inputSet)[4:ncol(inputSet)], gene_list)
       # write.table(comsa1,"2.intersection_genelist_exprSet_gene.txt", row.names = F, quote = F)
 
+      # Fix #106/#51: guard against empty gene intersection
+      if (length(comsa1) == 0) {
+        stop("No candidate genes found in the expression matrix after intersection. ",
+             "Please check that gene_list contains valid gene symbols matching column names.")
+      }
+
       print("Processing the  input representation matrix")
       # 对输入的表达矩阵进行处理
       inputSet <- inputSet[, c("ID", "OS.time", "OS", comsa1)]
@@ -428,7 +440,18 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
   colnames(InputMatrix_pre) <- gsub("-", ".", colnames(InputMatrix_pre))
   genelist.1 <- SigUnicox(gene_list = candidate_genes, inputSet = InputMatrix_pre, unicox_pcutoff = 0.05)
 
+  # Fix #106/#51: guard against empty gene lists after filtering
+  if (length(genelist.1) == 0) {
+    stop("No significant genes after unicox filtering (p < 0.05). ",
+         "Please try a higher unicox_p_cutoff or check your input data.")
+  }
+
   genelist.2 <- SigKMcox(gene_list = genelist.1, inputSet = InputMatrix_pre, KM_pcutoff = 0.05)
+
+  if (length(genelist.2) == 0) {
+    stop("No significant genes after KM filtering (p < 0.05). ",
+         "Please try a higher KM_p_cutoff or check your input data.")
+  }
 
   candidate_genes <- genelist.2
 
@@ -729,7 +752,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
         forest = T,
         seed = seed
       )
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
       rid <- rid$topvars
 
       result <- data.frame(
@@ -1026,7 +1049,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
           forest = T,
           seed = seed
         )
-        rid <- var.select(object = fit, conservative = "high")
+        rid <- max.subtree(fit, conservative = "high")
         rid <- rid$topvars
 
         result <- data.frame(
@@ -1323,7 +1346,7 @@ ML.Corefeature.Prog.Screen <- function(InputMatrix, ### 第一列ID,第二列OS.
         forest = T,
         seed = seed
       )
-      rid <- var.select(object = fit, conservative = "high")
+      rid <- max.subtree(fit, conservative = "high")
       rid <- rid$topvars
 
       result <- data.frame(

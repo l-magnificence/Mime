@@ -132,16 +132,21 @@ auc_dis_all <- function(object, # output of cal_AUC_ml_res mode = 'all'
       axis.text.x = element_blank()
     )
 
+  # Fix #88: limit dataset colors to actual number of cohorts
+  n_cohorts <- length(unique(labels$Cohort))
+  dataset_col_use <- dataset_col[seq_len(min(n_cohorts, length(dataset_col)))]
+
   p2 <- ggplot(labels, aes(Cohort, y = 1)) +
     geom_tile(aes(fill = Cohort), color = "white", size = 0.5) +
-    scale_fill_manual(values = dataset_col, name = "Cohort") +
+    scale_fill_manual(values = dataset_col_use, name = "Cohort") +
     labs(title = paste(year, "Year AUC predicted by all models")) +
     theme_void() +
-    theme(plot.title = element_text(hjust = 0.5, size = 10))
+    theme(plot.title = element_text(hjust = 0.5, size = 10),
+          legend.position = "none")
 
   p3 <- ggplot(data = mean_AUC, aes(x = Model, y = mean, fill = Value)) +
     geom_bar(position = "dodge", stat = "identity") +
-    scale_fill_manual(values = color[4]) +
+    scale_fill_manual(values = color[4], guide = "none") +
     geom_text(aes(label = mean), position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.2, size = 2) +
     theme(
       axis.title = element_text(size = 8),
@@ -163,7 +168,7 @@ auc_dis_all <- function(object, # output of cal_AUC_ml_res mode = 'all'
 
   p4 <- ggplot(data = mean_AUC_vaidate, aes(x = Model, y = mean, fill = Value)) +
     geom_bar(position = "dodge", stat = "identity") +
-    scale_fill_manual(values = color[5], name = "") +
+    scale_fill_manual(values = color[5], name = "", guide = "none") +
     geom_text(aes(label = mean), position = position_dodge(width = 0.9), vjust = 0.5, hjust = 1.2, size = 2) +
     theme(
       axis.title = element_text(size = 8),
